@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://via.placeholder.com/192">
+    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"Azzams Sales Portal","short_name":"Sales Portal","start_url":".","display":"standalone","background_color":"#f8fafc","theme_color":"#1e40af","icons":[{"src":"https://via.placeholder.com/192","sizes":"192x192","type":"image/png"}]}'>
+
+    <title>Azzams - Sales Portal</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #1e40af; --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+            --text-main: #334155; --bg: #f8fafc; --border: #e2e8f0;
+        }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--bg); color: var(--text-main); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent;}
+        
+        header { background: var(--primary); color: white; padding: 15px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); position: sticky; top: 0; z-index: 100;}
+        header h1 { margin: 0; font-size: 1.4rem; font-weight: 800; }
+        
+        .container { max-width: 600px; margin: 20px auto; padding: 0 15px; }
+        
+        .box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border); }
+        .box h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--border); padding-bottom: 10px; font-size: 1.1rem; }
+        
+        label { font-weight: 700; font-size: 0.9rem; display: block; margin-bottom: 5px; margin-top: 15px; }
+        input, select, textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 1rem; background-color: #f1f5f9; }
+        input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; background-color: white; }
+        
+        button { font-family: inherit; padding: 14px; border-radius: 8px; font-weight: 800; cursor: pointer; border: none; width: 100%; font-size: 1.1rem; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; margin-top: 15px;}
+        
+        .cart-item { display: flex; gap: 10px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); font-size: 0.95rem; font-weight: 600; background: white; border-radius: 8px; margin-bottom: 10px;}
+        .cart-item img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; }
+        .cart-item-details { flex: 1; }
+        .cart-item button { width: auto; padding: 5px 10px; font-size: 0.8rem; background: #fef2f2; color: var(--danger); border: 1px solid #fca5a5; border-radius: 4px; }
+        
+        .tag-btn { display: inline-block; width: auto; padding: 6px 10px; font-size: 0.8rem; background: #e0e7ff; color: var(--primary); margin: 0 5px 5px 0; border-radius: 6px; font-weight: bold; cursor: pointer;}
+        
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; justify-content: center; align-items: center; z-index: 1000; font-weight: bold; font-size: 1.2rem; color: var(--primary);}
+    </style>
+
+    <script>
+        // سكريبت إقناع المتصفح بقبول تثبيت الأبلكيشن (Service Worker)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                const swCode = `self.addEventListener('install', e => self.skipWaiting()); self.addEventListener('activate', e => self.clients.claim()); self.addEventListener('fetch', e => {});`;
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(err => console.log('SW Error', err));
+            });
+        }
+    </script>
+</head>
+<body>
+
+<div id="loading">جاري تحميل مساحة العمل...</div>
+
+<header>
+    <h1>Azzams - تسجيل أوردر جديد</h1>
+</header>
+
+<div class="container">
+    
+    <div class="box" style="border: 2px solid var(--primary); background: #eff6ff;">
+        <h3 style="color: var(--primary); margin-top:0;">👤 هوية البائع</h3>
+        <input type="text" id="seller-name" placeholder="اكتب اسمك هنا (إجباري)..." style="font-weight: bold; border-color: var(--primary);">
+    </div>
+
+    <div class="box" style="border-color: #86efac; background: #f0fdf4;">
+        <h3 style="color: var(--success); margin-bottom: 15px;">🛒 سلة المشتريات</h3>
+        
+        <label style="margin-top: 0;">كود/اسم المنتج الأساسي (من المخزن):</label>
+        <input type="text" id="cart-product" list="product-list" placeholder="ابحث عن المنتج..." style="border-color: #86efac;">
+        <datalist id="product-list"></datalist>
+        
+        <label>الاسم التجاري للمنتج (ليظهر للعميل):</label>
+        <input type="text" id="cart-comm-name" placeholder="مثال: محفظة كلاسيك سوداء" style="border-color: #bbf7d0;">
+
+        <label>رابط المنتج (للتجهيزات):</label>
+        <input type="url" id="cart-comm-url" placeholder="https://..." style="border-color: #bbf7d0; text-align: left; direction: ltr;">
+
+        <label>صورة المنتج (اختياري):</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="file" id="cart-image-file" accept="image/*" onchange="previewCartImage(event)" style="background: white; border-color: #bbf7d0; padding: 8px;">
+            <img id="cart-image-preview" src="" style="display:none; max-width: 60px; max-height: 60px; border-radius: 6px; border: 1px solid #cbd5e1;">
+        </div>
+        <input type="hidden" id="cart-image-base64">
+
+        <label>الكمية المطلوبة:</label>
+        <input type="number" id="cart-qty" value="1" placeholder="الكمية" style="border-color: #bbf7d0;">
+        
+        <button class="btn-success" onclick="addToCart()">إضافة المنتج للسلة ➕</button>
+        
+        <div id="cart-container" style="margin-top: 15px;"></div>
+        <div style="text-align: left; margin-top: 15px; font-weight: 800; color: var(--danger); font-size: 1.1rem; padding: 10px; background: white; border-radius: 8px; border: 1px dashed #fca5a5;">إجمالي المنتجات: <span id="cart-total">0</span> ج.م</div>
+    </div>
+
+    <div class="box">
+        <h3>👤 بيانات العميل والشحن</h3>
+        
+        <label>رقم الموبايل (أساسي):</label>
+        <input type="tel" id="sale-phone" placeholder="01xxxxxxxxx" oninput="checkDuplicatePhone()" style="font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">
+        <div id="duplicate-warning" style="display:none; background: #fef2f2; color: #dc2626; padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; margin-top: 5px; border: 1px solid #fca5a5;">⚠️ انتبه: هذا الرقم مسجل له أوردر مفتوح حالياً!</div>
+
+        <label>اسم العميل:</label>
+        <input type="text" id="sale-customer" placeholder="الاسم الرباعي">
+        
+        <label>المحافظة:</label>
+        <select id="sale-gov" onchange="applyShipping()"></select>
+        
+        <label>العنوان التفصيلي:</label>
+        <input type="text" id="sale-address" placeholder="الشارع، المبنى، الدور">
+        
+        <label>مصاريف الشحن (للعميل):</label>
+        <input type="number" id="sale-shipping" placeholder="يتم حسابها تلقائياً">
+        
+        <div style="display: flex; gap: 10px; margin-top: 15px; background: #eff6ff; padding: 10px; border-radius: 8px; align-items: center;">
+            <label style="margin:0; flex:1; cursor:pointer;"><input type="checkbox" id="sale-free-ship" style="width:auto; margin:0;" onchange="toggleFreeShip()"> شحن مجاني؟</label>
+            <input type="number" id="sale-actual-ship" placeholder="التكلفة الفعلية للمتجر" style="display:none; flex:1; padding: 8px;">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px; background: #eff6ff; padding: 10px; border-radius: 8px; align-items: center;">
+            <label style="margin:0; cursor:pointer;"><input type="checkbox" id="sale-free-wrap" style="width:auto; margin:0;"> 🎁 تغليف هدايا</label>
+        </div>
+
+        <label>المقدم المدفوع (إن وجد):</label>
+        <input type="number" id="sale-deposit" placeholder="0">
+        
+        <label>مصدر العميل:</label>
+        <select id="sale-source">
+            <option>تيك توك</option><option>إنستجرام</option><option>الموقع</option><option>فيسبوك</option><option>واتساب</option>
+        </select>
+        
+        <label>ملاحظات (للإدارة فقط):</label>
+        <div style="margin-bottom: 5px;">
+            <span class="tag-btn" onclick="addTag('VIP 🌟')">+ VIP</span>
+            <span class="tag-btn" onclick="addTag('شحن مستعجل 🚀')">+ مستعجل</span>
+            <span class="tag-btn" onclick="addTag('متهرب سابقاً ⚠️')">+ متهرب</span>
+        </div>
+        <textarea id="sale-notes" rows="2" placeholder="اكتب أي ملاحظة هامة للتجهيز..."></textarea>
+    </div>
+
+    <button class="btn-primary" style="margin-bottom: 40px; padding: 18px; font-size: 1.3rem; box-shadow: 0 10px 15px -3px rgba(30, 64, 175, 0.3);" onclick="saveOrder()">🚀 تأكيد وتسجيل الأوردر</button>
+
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCe-7GRYgE8pXfex04uFo-xyIZIMKCdGdo",
+        authDomain: "azzams-system.firebaseapp.com",
+        projectId: "azzams-system",
+        storageBucket: "azzams-system.firebasestorage.app",
+        messagingSenderId: "528435966223",
+        appId: "1:528435966223:web:7e732aea811ab152b58e7a",
+        databaseURL: "https://azzams-system-default-rtdb.firebaseio.com"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let productsData = {}, bundlesData = {}, salesData = {}, settings = {};
+    let cart = [];
+
+    db.ref('/').on('value', snap => {
+        const data = snap.val() || {};
+        productsData = data.products || {};
+        bundlesData = data.bundles || {};
+        salesData = data.sales || {};
+        settings = data.settings || {};
+        
+        if(settings.shippingZones) {
+            let zOptions = '<option value="">اختر المحافظة...</option>';
+            settings.shippingZones.split('\n').forEach(line => {
+                let parts = line.split(':');
+                if(parts.length === 2) zOptions += `<option value="${parts[1].trim()}">${parts[0].trim()} (${parts[1].trim()} ج)</option>`;
+            });
+            document.getElementById('sale-gov').innerHTML = zOptions;
+            if(settings.color1) document.documentElement.style.setProperty('--primary', settings.color1);
+        }
+
+        let allProductNames = Object.values(productsData).map(p => `<option value="${p.name}">`).join('') + Object.values(bundlesData).map(b => `<option value="${b.name}">`).join('');
+        document.getElementById('product-list').innerHTML = allProductNames;
+
+        document.getElementById('loading').style.display = 'none';
+    });
+
+    function previewCartImage(event) {
+        const file = event.target.files[0];
+        if(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('cart-image-base64').value = e.target.result;
+                document.getElementById('cart-image-preview').src = e.target.result;
+                document.getElementById('cart-image-preview').style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        } else {
+            document.getElementById('cart-image-base64').value = "";
+            document.getElementById('cart-image-preview').style.display = 'none';
+        }
+    }
+
+    function applyShipping() {
+        if(!document.getElementById('sale-free-ship').checked) {
+            document.getElementById('sale-shipping').value = document.getElementById('sale-gov').value;
+        }
+    }
+
+    function toggleFreeShip() {
+        const isFree = document.getElementById('sale-free-ship').checked;
+        const shipInput = document.getElementById('sale-shipping');
+        const actualInput = document.getElementById('sale-actual-ship');
+        
+        if(isFree) {
+            shipInput.value = 0;
+            shipInput.disabled = true;
+            actualInput.style.display = 'block';
+            if(document.getElementById('sale-gov').value) actualInput.value = document.getElementById('sale-gov').value;
+        } else {
+            shipInput.disabled = false;
+            actualInput.style.display = 'none';
+            actualInput.value = '';
+            applyShipping();
+        }
+    }
+
+    function checkDuplicatePhone() {
+        let phoneInput = document.getElementById('sale-phone').value.trim().replace(/\s+/g, '');
+        let searchPhone = phoneInput.startsWith('01') && phoneInput.length === 11 ? '+2' + phoneInput : phoneInput;
+        const warning = document.getElementById('duplicate-warning');
+        
+        if(searchPhone.length < 10) { warning.style.display = 'none'; return; }
+        let isDuplicate = Object.values(salesData).some(s => s.phone === searchPhone && (s.status === 'قيد التجهيز' || s.status === 'متابعة' || s.status === 'مع المندوب' || s.status === 'استبدال'));
+        warning.style.display = isDuplicate ? 'block' : 'none';
+    }
+
+    function addToCart() {
+        let pName = document.getElementById('cart-product').value;
+        let qty = parseInt(document.getElementById('cart-qty').value) || 1;
+        let commName = document.getElementById('cart-comm-name').value.trim();
+        let commUrl = document.getElementById('cart-comm-url').value.trim();
+        let imgBase64 = document.getElementById('cart-image-base64').value;
+        
+        if(!pName) return alert("برجاء اختيار الكود أو المنتج من المخزن أولاً!");
+        let foundP = Object.values(productsData).find(p => p.name === pName);
+        let foundB = Object.values(bundlesData).find(b => b.name === pName);
+        let item = null;
+        if(foundP) item = { id: foundP.id, name: foundP.name, commName: commName, commUrl: commUrl, imageUrl: imgBase64, price: foundP.price, cost: foundP.cost, isBundle: false, qty: qty };
+        else if(foundB) {
+            let bCost = foundB.items.reduce((s, id) => s + (productsData[id] ? productsData[id].cost : 0), 0);
+            item = { id: foundB.id, name: foundB.name, commName: commName, commUrl: commUrl, imageUrl: imgBase64, price: foundB.price, cost: bCost, isBundle: true, qty: qty };
+        } else return alert("المنتج غير موجود بقاعدة البيانات!");
+        cart.push(item);
+        document.getElementById('cart-product').value = ''; 
+        document.getElementById('cart-qty').value = '1'; 
+        document.getElementById('cart-comm-name').value = '';
+        document.getElementById('cart-comm-url').value = '';
+        document.getElementById('cart-image-file').value = '';
+        document.getElementById('cart-image-base64').value = '';
+        document.getElementById('cart-image-preview').style.display = 'none';
+        renderCart();
+    }
+
+    function removeCartItem(idx) { cart.splice(idx, 1); renderCart(); }
+
+    function renderCart() {
+        let html = ''; let total = 0;
+        cart.forEach((item, i) => {
+            total += item.price * item.qty;
+            let n = item.commName ? `${item.name} <br><strong style="color:var(--primary); font-size:0.9rem;">${item.commName}</strong>` : item.name;
+            let linkHtml = item.commUrl ? `<br><a href="${item.commUrl}" target="_blank" style="font-size:0.8rem; color:#059669;">رابط المنتج</a>` : '';
+            let imgHtml = item.imageUrl ? `<img src="${item.imageUrl}" alt="صورة المنتج">` : `<div style="width:50px;height:50px;background:#e2e8f0;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#64748b;">بدون صورة</div>`;
+            html += `<div class="cart-item">${imgHtml}<div class="cart-item-details"><span style="display:block; line-height:1.2;">${n} (x${item.qty})</span>${linkHtml}</div><div style="text-align:center;"><span style="display:block; font-weight:bold; color:var(--dark); margin-bottom:5px;">${item.price * item.qty} ج</span><button onclick="removeCartItem(${i})">حذف</button></div></div>`;
+        });
+        document.getElementById('cart-container').innerHTML = html;
+        document.getElementById('cart-total').innerText = total;
+    }
+
+    function addTag(txt) { let n = document.getElementById('sale-notes'); n.value += (n.value ? ' - ' : '') + txt; }
+
+    function saveOrder() {
+        let seller = document.getElementById('seller-name').value.trim();
+        if(!seller) return alert("برجاء كتابة اسم البائع أولاً!");
+        if(cart.length === 0) return alert("سلة المشتريات فارغة!");
+        let name = document.getElementById('sale-customer').value;
+        let rawPhone = document.getElementById('sale-phone').value.trim();
+        if(!name || !rawPhone) return alert("برجاء استكمال بيانات العميل الأساسية (الاسم والرقم)!");
+        let phone = rawPhone.replace(/\s+/g, '');
+        if(phone.startsWith('01') && phone.length === 11) phone = '+2' + phone;
+        if(document.getElementById('duplicate-warning').style.display === 'block') { if(!confirm("⚠️ هذا العميل لديه أوردر مفتوح حالياً. هل أنت متأكد من تسجيل هذا الأوردر كأوردر إضافي/جديد له؟")) return; }
+
+        let reqQty = {}; let cogs = 0; let rev = 0;
+        cart.forEach(item => {
+            rev += item.price * item.qty;
+            if(item.isBundle) { bundlesData[item.id].items.forEach(pId => { reqQty[pId] = (reqQty[pId] || 0) + item.qty; cogs += (productsData[pId] ? productsData[pId].cost : 0) * item.qty; }); }
+            else { reqQty[item.id] = (reqQty[item.id] || 0) + item.qty; cogs += item.cost * item.qty; }
+        });
+
+        for(let pId in reqQty) { if(!productsData[pId] || productsData[pId].qty < reqQty[pId]) return alert(`الكمية المتاحة من أحد المنتجات في المخزن لا تكفي لتنفيذ الأوردر!`); }
+        for(let pId in reqQty) { db.ref('products/' + pId + '/qty').set(productsData[pId].qty - reqQty[pId]); }
+
+        let isFree = document.getElementById('sale-free-ship').checked;
+        let actualShip = isFree ? (parseFloat(document.getElementById('sale-actual-ship').value) || 0) : 0;
+        let customerShip = isFree ? 0 : (parseFloat(document.getElementById('sale-shipping').value) || 0);
+        if(isFree && actualShip === 0) return alert("برجاء تحديد تكلفة الشحن الفعلية التي سيتحملها المتجر (الخانة الحمراء)!");
+
+        let sName = cart.map(i => `${i.commName ? i.commName : i.name} (x${i.qty})`).join(' + ');
+        let govSelect = document.getElementById('sale-gov');
+        let govText = govSelect.options.length > 0 ? govSelect.options[govSelect.selectedIndex].text : '';
+        const id = Date.now().toString();
+
+        const totalReq = (rev + customerShip) - (parseFloat(document.getElementById('sale-deposit').value) || 0);
+
+        const saleObj = {
+            id, sellerName: seller, timestamp: Date.now(), name: sName, items: cart, qty: cart.reduce((s,i)=>s+i.qty, 0),
+            revenue: rev, cogs: cogs, customer: name, phone: phone, address: document.getElementById('sale-address').value || "",
+            gov: govText, shipping: customerShip, freeShipping: isFree, actualShippingCost: actualShip, freeWrapping: document.getElementById('sale-free-wrap').checked,
+            deposit: parseFloat(document.getElementById('sale-deposit').value) || 0, discount: 0,
+            notes: document.getElementById('sale-notes').value, source: document.getElementById('sale-source').value,
+            status: "قيد التجهيز", date: new Date().toISOString().split('T')[0]
+        };
+
+        db.ref('sales/' + id).set(saleObj).then(() => {
+            // إرسال الإشعار لـ NTFY 🚀
+            fetch('https://ntfy.sh/Azzams_orders2026', {
+                method: 'POST',
+                headers: { 'Title': 'أوردر مبيعات جديد 🚀', 'Tags': 'moneybag,package' },
+                body: `بواسطة: ${seller}\nللعميل: ${name}\nالمبلغ: ${totalReq} ج.م`
+            }).catch(err => console.log('Ntfy Failed', err));
+
+            alert("✅ تم تأكيد وتسجيل الأوردر بنجاح!");
+            location.reload(); 
+        });
+    }
+</script>
+</body>
+</html>
