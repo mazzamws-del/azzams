@@ -4479,63 +4479,7 @@ function printDigitalInvoice(key) {
 
 
 
-<script id="azzams-mobile-sidebar-js-v69">
-(function(){
-  function els(){
-    return {
-      sb:document.getElementById('sidebar'),
-      ov:document.getElementById('sidebar-overlay')
-    };
-  }
-  function setSidebar(open){
-    var x=els(); if(!x.sb||!x.ov)return false;
-    x.sb.classList.toggle('open',!!open);
-    document.body.classList.toggle('mobile-sidebar-open',!!open);
-    x.ov.setAttribute('aria-hidden',open?'false':'true');
-    return !!open;
-  }
-  window.toggleSidebar=function(){
-    var x=els(); if(!x.sb)return false;
-    return setSidebar(!x.sb.classList.contains('open'));
-  };
-  window.closeSidebar=function(){ return setSidebar(false); };
-  window.__azzamsMobileSidebarIsOpen=function(){
-    var x=els(); return !!(x.sb&&x.sb.classList.contains('open'));
-  };
-  window.__azzamsHandleAndroidBack=function(){
-    if(window.__azzamsMobileSidebarIsOpen()){ window.closeSidebar(); return true; }
-    var opened=document.querySelector('.modal-overlay.open');
-    if(opened){
-      opened.classList.remove('open');
-      return true;
-    }
-    return false;
-  };
 
-  function bind(){
-    var x=els(); if(!x.sb||!x.ov)return;
-    x.ov.addEventListener('pointerdown',function(e){
-      e.preventDefault(); e.stopPropagation(); window.closeSidebar();
-    },{passive:false});
-    x.sb.addEventListener('click',function(e){
-      var item=e.target.closest('.nav-item');
-      if(item && window.innerWidth<=900){
-        setTimeout(window.closeSidebar,80);
-      }
-    });
-    document.addEventListener('keydown',function(e){
-      if(e.key==='Escape') window.closeSidebar();
-    });
-    window.addEventListener('resize',function(){
-      if(window.innerWidth>900) window.closeSidebar();
-    });
-    // Start closed on mobile even if an old class/state survived.
-    if(window.innerWidth<=900) window.closeSidebar();
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind);
-  else bind();
-})();
-</script>
 </body></html>`);
     win.document.close();
     setTimeout(() => { win.focus(); win.print(); }, 800);
@@ -5789,6 +5733,35 @@ window.addEventListener('DOMContentLoaded',function(){
 })();
 </script>
 
+<script id="azzams-mobile-sidebar-js-v69">
+(function(){
+  function els(){return {sb:document.getElementById('sidebar'),ov:document.getElementById('sidebar-overlay')}}
+  function setSidebar(open){
+    var x=els();if(!x.sb||!x.ov)return false;
+    x.sb.classList.toggle('open',!!open);
+    document.body.classList.toggle('mobile-sidebar-open',!!open);
+    x.ov.setAttribute('aria-hidden',open?'false':'true');
+    return !!open;
+  }
+  window.toggleSidebar=function(){var x=els();if(!x.sb)return false;return setSidebar(!x.sb.classList.contains('open'))};
+  window.closeSidebar=function(){return setSidebar(false)};
+  window.__azzamsMobileSidebarIsOpen=function(){var x=els();return !!(x.sb&&x.sb.classList.contains('open'))};
+  window.__azzamsHandleAndroidBack=function(){
+    if(window.__azzamsMobileSidebarIsOpen()){window.closeSidebar();return true}
+    var opened=document.querySelector('.modal-overlay.open');if(opened){opened.classList.remove('open');return true}
+    return false;
+  };
+  function bind(){
+    var x=els();if(!x.sb||!x.ov)return;
+    x.ov.onclick=function(e){e.preventDefault();e.stopPropagation();window.closeSidebar()};
+    x.sb.addEventListener('click',function(e){var item=e.target.closest('.nav-item');if(item&&window.innerWidth<=900)setTimeout(window.closeSidebar,50)});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeSidebar()});
+    window.addEventListener('resize',function(){if(window.innerWidth>900)window.closeSidebar()});
+    if(window.innerWidth<=900)window.closeSidebar();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
+})();
+</script>
 <style id="azzams-courier-admin-v1">
 .courier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:18px}
 .courier-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:15px;box-shadow:0 2px 10px rgba(15,23,42,.04)}
