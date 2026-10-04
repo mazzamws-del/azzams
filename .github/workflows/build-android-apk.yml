@@ -1,4 +1,4 @@
-name: Build Azzams APK
+name: Build Azzams APKs
 
 on:
   workflow_dispatch:
@@ -35,19 +35,30 @@ jobs:
 
       - name: Bundle web dependencies
         run: |
-          mkdir -p app/src/main/assets/vendor
-          curl -fL --retry 3 -o app/src/main/assets/vendor/firebase-app-compat.js https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js
-          curl -fL --retry 3 -o app/src/main/assets/vendor/firebase-database-compat.js https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js
+          for DIR in app/src/main/assets/vendor courier/src/main/assets/vendor; do
+            mkdir -p "$DIR"
+            curl -fL --retry 3 -o "$DIR/firebase-app-compat.js" https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js
+            curl -fL --retry 3 -o "$DIR/firebase-database-compat.js" https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js
+          done
           curl -fL --retry 3 -o app/src/main/assets/vendor/firebase-auth-compat.js https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js
 
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Build both APKs
+        run: gradle :app:assembleDebug :courier:assembleDebug
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Azzams-System.apk
+      - name: Prepare APK files
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Azzams-System-1.1.0.apk
+          cp courier/build/outputs/apk/debug/courier-debug.apk dist/Azzams-Courier-1.0.0.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: Azzams-System-APK
-          path: android-app/app/build/outputs/apk/debug/Azzams-System.apk
+          path: android-app/dist/Azzams-System-1.1.0.apk
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Azzams-Courier-APK
+          path: android-app/dist/Azzams-Courier-1.0.0.apk
           retention-days: 30
