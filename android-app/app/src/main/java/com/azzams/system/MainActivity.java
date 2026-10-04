@@ -262,13 +262,27 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override
-    public void onBackPressed() {
+    private void performDefaultBack() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
-            super.onBackPressed();
+            MainActivity.super.onBackPressed();
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView == null) {
+            super.onBackPressed();
+            return;
+        }
+
+        webView.evaluateJavascript(
+                "(function(){try{return !!(window.__azzamsHandleAndroidBack && window.__azzamsHandleAndroidBack());}catch(e){return false;}})();",
+                value -> {
+                    if ("true".equals(value)) return;
+                    performDefaultBack();
+                });
     }
 
     @Override
