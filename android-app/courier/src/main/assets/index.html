@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111318">
+<title>Azzams Courier</title>
+<script src="vendor/firebase-app-compat.js"></script>
+<script src="vendor/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--dark:#111318;--muted:#6b7280;--border:#e5e7eb;--brand:#5b34e6;--success:#059669;--danger:#dc2626;--warn:#d97706;--blue:#2563eb}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Arial,"Tahoma",sans-serif;background:var(--bg);color:#16181d;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit}.hidden{display:none!important}
+#boot{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px}
+.boot-icon{width:76px;height:76px;border-radius:22px;background:linear-gradient(135deg,#5b34e6,#2563eb);display:flex;align-items:center;justify-content:center;font-size:34px;margin:0 auto 18px;box-shadow:0 12px 28px rgba(91,52,230,.24)}
+.boot-bar{height:5px;width:220px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:18px auto}.boot-bar span{display:block;height:100%;width:45%;background:linear-gradient(90deg,#5b34e6,#2563eb);animation:load 1.2s ease-in-out infinite;border-radius:99px}@keyframes load{0%{transform:translateX(140%)}100%{transform:translateX(-240%)}}
+#login{min-height:100vh;background:#111318;padding:calc(32px + env(safe-area-inset-top)) 18px 30px;display:flex;align-items:center;justify-content:center}
+.login-card{width:100%;max-width:420px;background:#fff;border-radius:24px;padding:25px 20px;box-shadow:0 25px 60px rgba(0,0,0,.25)}
+.brand-mark{width:66px;height:66px;border-radius:19px;background:linear-gradient(135deg,#5b34e6,#2563eb);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 12px}
+.login-card h1{text-align:center;margin:0;font-size:24px}.login-card p{text-align:center;color:var(--muted);font-size:13px;line-height:1.6;margin:5px 0 22px}
+label{display:block;font-weight:800;font-size:12px;margin:10px 2px 6px;color:#4b5563}
+input,textarea,select{width:100%;border:1px solid #dfe3ea;border-radius:12px;background:#fff;padding:13px 14px;outline:none;font-size:16px}input:focus,textarea:focus,select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(91,52,230,.1)}
+.btn{border:0;border-radius:12px;padding:12px 14px;font-weight:900;cursor:pointer;min-height:45px}.btn-primary{background:var(--brand);color:#fff}.btn-dark{background:#111318;color:#fff}.btn-success{background:#e8f7f1;color:#057a55}.btn-danger{background:#feecee;color:#b42331}.btn-warn{background:#fff3da;color:#946200}.btn-blue{background:#eaf0ff;color:#2451b7}.btn-ghost{background:#fff;border:1px solid var(--border);color:#374151}
+.login-btn{width:100%;margin-top:18px;font-size:16px}.error{color:#b42331;background:#fff0f1;border:1px solid #fecdd3;border-radius:10px;padding:10px;font-weight:800;font-size:12px;margin-top:12px;display:none}
+#app{padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+.topbar{position:sticky;top:0;z-index:20;background:#111318;color:#fff;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;box-shadow:0 8px 24px rgba(15,23,42,.16)}
+.top-row{display:flex;align-items:center;justify-content:space-between;gap:10px}.driver-name{font-size:18px;font-weight:900}.driver-sub{font-size:11px;color:#9ca3af;margin-top:2px}.logout{border:1px solid #343943;background:#1a1d23;color:#fff;border-radius:10px;padding:8px 10px;font-weight:800}
+.content{padding:14px}.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.kpi{background:#fff;border:1px solid var(--border);border-radius:15px;padding:13px}.kpi span{font-size:11px;color:var(--muted);font-weight:800}.kpi b{display:block;font-size:21px;margin-top:4px}.cash-box{margin-top:9px;background:linear-gradient(135deg,#0f172a,#202735);color:#fff;border-radius:16px;padding:15px;display:flex;align-items:center;justify-content:space-between}.cash-box small{color:#aeb6c4;font-size:11px}.cash-box strong{font-size:24px}
+.tabs{display:flex;gap:7px;overflow-x:auto;padding:14px 0 10px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tab{white-space:nowrap;border:1px solid var(--border);background:#fff;border-radius:999px;padding:9px 13px;font-weight:900;font-size:12px;color:#6b7280}.tab.active{background:#111318;color:#fff;border-color:#111318}
+.search{margin-bottom:10px}.order-list{display:flex;flex-direction:column;gap:11px}
+.order{background:#fff;border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:0 2px 12px rgba(15,23,42,.04)}.order-head{padding:12px 13px;border-bottom:1px solid #edf0f3;display:flex;justify-content:space-between;gap:10px}.order-no{font-weight:900;color:#111318}.status{font-size:10px;font-weight:900;border-radius:999px;padding:5px 8px;background:#f3f4f6;color:#4b5563}.status.active{background:#eef2ff;color:#4338ca}.status.done{background:#e8f7f1;color:#047857}.status.return{background:#fff0f1;color:#b42331}
+.order-body{padding:13px}.customer{font-size:17px;font-weight:900}.phone{font-size:13px;color:#5b34e6;font-weight:800;direction:ltr;text-align:right;margin-top:2px}.address{font-size:13px;line-height:1.65;color:#4b5563;margin-top:7px}.items{margin-top:10px;background:#f8fafc;border-radius:12px;padding:9px 10px}.item{font-size:12px;font-weight:800;padding:4px 0;border-bottom:1px dashed #d7dce3}.item:last-child{border:0}.labels{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}.label{font-size:10px;font-weight:900;border-radius:999px;padding:4px 7px;background:#111318;color:#fff}
+.money-row{display:flex;justify-content:space-between;align-items:center;margin-top:11px;padding:10px 11px;border-radius:12px;background:#fff8e8;border:1px solid #fde7b0}.money-row span{font-size:11px;color:#8a6413;font-weight:800}.money-row b{font-size:21px;color:#7c4f00}
+.paid{background:#ecfdf5;border-color:#bbf7d0}.paid span,.paid b{color:#047857}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.quick a{text-decoration:none;text-align:center;min-height:42px;display:flex;align-items:center;justify-content:center;border-radius:11px;font-weight:900;font-size:12px;background:#f3f4f6;color:#28303d}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.actions .btn{font-size:12px;padding:10px 8px}
+.result-line{margin-top:10px;border-radius:12px;padding:10px;font-size:12px;font-weight:900;line-height:1.7}.result-delivered{background:#ecfdf5;color:#047857}.result-return{background:#fff0f1;color:#b42331}.settled{font-size:10px;color:#059669;margin-top:5px;font-weight:900}
+.empty{text-align:center;padding:44px 16px;color:#8b93a1}.empty .emoji{font-size:42px;margin-bottom:9px}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:80;display:none;align-items:flex-end}.modal.open{display:flex}.modal-box{width:100%;background:#fff;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto}.modal-title{font-size:18px;font-weight:900;margin-bottom:4px}.modal-sub{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px}.modal-actions{display:flex;gap:7px;margin-top:14px}.modal-actions .btn{flex:1}
+.bottom-note{font-size:10px;color:#9ca3af;text-align:center;margin:18px 0}
+</style>
+</head>
+<body>
+<div id="boot"><div><div class="boot-icon">🛵</div><b style="font-size:19px">Azzams Courier</b><div class="boot-bar"><span></span></div><div style="color:#6b7280;font-size:13px">جاري فتح التطبيق...</div></div></div>
+
+<section id="login" class="hidden">
+  <div class="login-card">
+    <div class="brand-mark">🛵</div>
+    <h1>Azzams Courier</h1>
+    <p>دخول المندوب ومتابعة الأوردرات المعينة ليك فقط</p>
+    <label>رقم الموبايل</label><input id="login-phone" inputmode="tel" placeholder="01xxxxxxxxx">
+    <label>PIN</label><input id="login-pin" type="password" inputmode="numeric" maxlength="6" placeholder="••••">
+    <button class="btn btn-primary login-btn" onclick="loginCourier()">دخول</button>
+    <div class="error" id="login-error"></div>
+  </div>
+</section>
+
+<section id="app" class="hidden">
+  <header class="topbar">
+    <div class="top-row"><div><div class="driver-name" id="driver-name">المندوب</div><div class="driver-sub" id="driver-phone"></div></div><button class="logout" onclick="logoutCourier()">خروج</button></div>
+  </header>
+  <main class="content">
+    <div class="kpis">
+      <div class="kpi"><span>📦 معايا الآن</span><b id="k-active">0</b></div>
+      <div class="kpi"><span>✅ اتسلم النهارده</span><b id="k-delivered">0</b></div>
+      <div class="kpi"><span>↩️ مرتجع النهارده</span><b id="k-returned">0</b></div>
+      <div class="kpi"><span>📋 إجمالي أوردراتي</span><b id="k-total">0</b></div>
+    </div>
+    <div class="cash-box"><div><small>💵 تحصيلات معايا لم تُسوّى</small><div style="font-size:11px;color:#818b9d;margin-top:3px">سلّمها للإدارة عند التقفيل</div></div><strong id="k-cash">0 ج</strong></div>
+    <div class="tabs">
+      <button class="tab active" data-filter="active" onclick="setFilter('active',this)">معايا الآن</button>
+      <button class="tab" data-filter="today" onclick="setFilter('today',this)">نتائج اليوم</button>
+      <button class="tab" data-filter="done" onclick="setFilter('done',this)">المكتملة</button>
+      <button class="tab" data-filter="all" onclick="setFilter('all',this)">الكل</button>
+    </div>
+    <div class="search"><input id="search" placeholder="🔍 اسم العميل، رقم الموبايل أو العنوان..." oninput="renderOrders()"></div>
+    <div id="order-list" class="order-list"></div>
+    <div class="bottom-note">أي تغيير حالة بيتسجل فوراً في نظام Azzams الرئيسي.</div>
+  </main>
+</section>
+
+<div class="modal" id="result-modal" onclick="if(event.target===this)closeResultModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="result-title">نتيجة الأوردر</div>
+    <div class="modal-sub" id="result-sub"></div>
+    <input type="hidden" id="result-order">
+    <input type="hidden" id="result-type">
+    <div id="amount-wrap"><label>المبلغ اللي استلمته فعلياً من العميل</label><input id="result-amount" inputmode="decimal" type="number" min="0"></div>
+    <div id="reason-wrap"><label>سبب الإلغاء / المرتجع</label><select id="result-reason">
+      <option>العميل رفض الاستلام</option><option>العميل لم يرد</option><option>العميل غير متاح</option><option>العنوان غير صحيح</option><option>رفض بعد المعاينة</option><option>أخرى</option>
+    </select></div>
+    <div class="modal-actions"><button class="btn btn-primary" id="result-save" onclick="saveResult()">تأكيد</button><button class="btn btn-ghost" onclick="closeResultModal()">رجوع</button></div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCe-7GRYgE8pXfex04uFo-xyIZIMKCdGdo",authDomain:"azzams-system.firebaseapp.com",projectId:"azzams-system",storageBucket:"azzams-system.firebasestorage.app",messagingSenderId:"528435966223",appId:"1:528435966223:web:7e732aea811ab152b58e7a",databaseURL:"https://azzams-system-default-rtdb.firebaseio.com"};
+let db=null,currentCourier=null,orders={},filter='active',salesRef=null;
+const $=id=>document.getElementById(id);
+const num=v=>Number(v)||0;
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function phone(v){v=String(v||'').replace(/[\s\-()]/g,'');if(v.startsWith('+20'))v='0'+v.slice(3);else if(v.startsWith('0020'))v='0'+v.slice(4);else if(v.startsWith('20')&&v.length>=11)v='0'+v.slice(2);return v}
+function wa(v){let x=phone(v).replace(/\D/g,'');if(x.startsWith('0'))x='2'+x;return x}
+function localDate(ts){const d=ts?new Date(ts):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
+function expectedCOD(s){const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,total-pre)}
+function shippingCharge(s){return s.freeShipping?0:num(s.shipping)}
+function money(v){return Math.round(num(v)).toLocaleString('ar-EG')+' ج'}
+function resultText(r){return ({delivered:'✅ تم التسليم',cancelled:'❌ ملغي',returned_paid_shipping:'↩️ مرتجع — دفع الشحن',returned_unpaid_shipping:'↩️ مرتجع — مدفعش الشحن'})[r]||''}
+async function sha256(v){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(v)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function show(id){$('boot').classList.add('hidden');$('login').classList.toggle('hidden',id!=='login');$('app').classList.toggle('hidden',id!=='app')}
+function bootError(msg){$('boot').innerHTML='<div style="max-width:380px;padding:24px"><div style="font-size:40px">⚠️</div><h3>تعذر تشغيل Azzams Courier</h3><p style="color:#6b7280;line-height:1.8">'+esc(msg)+'</p><button class="btn btn-primary" onclick="location.reload()">إعادة المحاولة</button></div>'}
+function init(){
+  try{
+    if(typeof firebase==='undefined')throw new Error('Firebase SDK غير موجود');
+    firebase.initializeApp(firebaseConfig);db=firebase.database();
+    setTimeout(()=>{if(!$('boot').classList.contains('hidden'))bootError('الاتصال بقاعدة البيانات متأخر. اتأكد من الإنترنت وحاول تاني.')},12000);
+    const saved=localStorage.getItem('azzamsCourierId');
+    if(saved){
+      db.ref('couriers/'+saved).once('value').then(s=>{const c=s.val();if(c&&c.active!==false){startCourier(c)}else{localStorage.removeItem('azzamsCourierId');show('login')}}).catch(e=>bootError(e.message));
+    }else show('login');
+  }catch(e){bootError(e.message)}
+}
+window.loginCourier=async function(){
+  const ph=phone($('login-phone').value),pin=$('login-pin').value.trim(),err=$('login-error');err.style.display='none';
+  if(ph.length<10||pin.length<4){err.textContent='اكتب رقم الموبايل والـPIN.';err.style.display='block';return}
+  try{
+    const hash=await sha256(pin);const snap=await db.ref('couriers').once('value');let found=null;
+    snap.forEach(ch=>{const c=ch.val()||{};if(phone(c.phone)===ph&&c.pinHash===hash&&c.active!==false)found=c});
+    if(!found){err.textContent='رقم الموبايل أو PIN غير صحيح، أو حساب المندوب موقوف.';err.style.display='block';return}
+    localStorage.setItem('azzamsCourierId',found.id);startCourier(found);
+  }catch(e){err.textContent='حصل خطأ في الاتصال: '+e.message;err.style.display='block'}
+}
+function startCourier(c){
+  currentCourier=c;show('app');$('driver-name').textContent=c.name||'المندوب';$('driver-phone').textContent=phone(c.phone);
+  if(salesRef)salesRef.off();
+  salesRef=db.ref('sales').orderByChild('courierId').equalTo(c.id);
+  salesRef.on('value',snap=>{orders=snap.val()||{};renderOrders()},e=>alert('تعذر تحميل الأوردرات: '+e.message));
+  db.ref('couriers/'+c.id).on('value',snap=>{const x=snap.val();if(!x||x.active===false){alert('تم إيقاف حساب المندوب من الإدارة.');logoutCourier()}else currentCourier=x});
+}
+window.logoutCourier=function(){if(salesRef)salesRef.off();localStorage.removeItem('azzamsCourierId');currentCourier=null;orders={};$('login-pin').value='';show('login')}
+window.setFilter=function(f,b){filter=f;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderOrders()}
+function itemText(s){const a=Array.isArray(s.items)?s.items:[{name:s.name||'منتج',qty:s.qty||1}];return a.map(i=>'<div class="item">'+esc(i.commName||i.name||'منتج')+' ×'+(num(i.qty)||1)+'</div>').join('')}
+function orderClass(s){if(s.courierResult==='delivered')return 'done';if(s.courierResult)return 'return';return 'active'}
+function renderOrders(){
+  if(!currentCourier)return;
+  const today=localDate(),q=($('search').value||'').trim().toLowerCase();
+  let arr=Object.entries(orders).sort((a,b)=>num(b[1].courierAssignedAt)-num(a[1].courierAssignedAt));
+  const all=arr;
+  $('k-active').textContent=all.filter(([,s])=>!s.courierResult&&s.status==='مع المندوب').length;
+  $('k-delivered').textContent=all.filter(([,s])=>s.courierResult==='delivered'&&localDate(s.courierResultAt)===today).length;
+  $('k-returned').textContent=all.filter(([,s])=>String(s.courierResult||'').startsWith('returned')&&localDate(s.courierResultAt)===today).length;
+  $('k-total').textContent=all.length;
+  const cash=all.filter(([,s])=>s.courierResult&&!s.courierSettledAt).reduce((a,[,s])=>a+num(s.courierCollectedAmount),0);$('k-cash').textContent=money(cash);
+  arr=arr.filter(([,s])=>{
+    if(filter==='active'&&(s.courierResult||s.status!=='مع المندوب'))return false;
+    if(filter==='today'&&localDate(s.courierResultAt)!==today)return false;
+    if(filter==='done'&&!s.courierResult)return false;
+    if(q&&!((s.customer||'')+' '+(s.phone||'')+' '+(s.address||'')+' '+(s.gov||'')).toLowerCase().includes(q))return false;
+    return true
+  });
+  $('order-list').innerHTML=arr.map(([k,s])=>{
+    const cod=expectedCOD(s),done=!!s.courierResult,addr=[s.gov,s.area,s.address].filter(Boolean).join(' - '),labels=Array.isArray(s.labels)?s.labels:[];
+    const actions=done?'':`<div class="actions"><button class="btn btn-success" onclick="openResult('${k}','delivered')">✅ تم التسليم</button><button class="btn btn-danger" onclick="openResult('${k}','cancelled')">❌ ملغي</button><button class="btn btn-warn" onclick="openResult('${k}','returned_paid_shipping')">↩️ مرتجع + دفع الشحن</button><button class="btn btn-ghost" onclick="openResult('${k}','returned_unpaid_shipping')">↩️ مرتجع بدون شحن</button></div>`;
+    const result=done?`<div class="result-line ${s.courierResult==='delivered'?'result-delivered':'result-return'}">${resultText(s.courierResult)}<br>المتحصل: ${money(s.courierCollectedAmount)}${s.returnReason?'<br>السبب: '+esc(s.returnReason):''}</div>${s.courierSettledAt?'<div class="settled">✅ تمت تسوية المبلغ مع الإدارة</div>':''}`:'';
+    return `<article class="order"><div class="order-head"><div><div class="order-no">#${esc(k.slice(-6))}</div><div style="font-size:10px;color:#9ca3af;margin-top:2px">${esc(s.date||'')}</div></div><span class="status ${orderClass(s)}">${done?resultText(s.courierResult):'🚚 معاك للتوصيل'}</span></div><div class="order-body"><div class="customer">${esc(s.customer||'—')}</div><div class="phone">${esc(phone(s.phone))}${s.phone2?' | '+esc(phone(s.phone2)):''}</div><div class="address">📍 ${esc(addr||'لا يوجد عنوان')}</div><div class="items">${itemText(s)}</div>${labels.length?'<div class="labels">'+labels.map(l=>'<span class="label">'+esc(l)+'</span>').join('')+'</div>':''}<div class="money-row ${cod<=0?'paid':''}"><span>${cod<=0?'الأوردر':'المطلوب تحصيله'}</span><b>${cod<=0?'مدفوع بالكامل':money(cod)}</b></div><div class="quick"><a href="tel:${esc(phone(s.phone))}">📞 اتصال</a><a href="https://wa.me/${esc(wa(s.phone))}">💬 واتساب</a><a href="geo:0,0?q=${encodeURIComponent(addr)}">📍 خريطة</a></div>${actions}${result}</div></article>`
+  }).join('')||'<div class="empty"><div class="emoji">📦</div><b>مفيش أوردرات هنا</b><div style="font-size:12px;margin-top:4px">الأوردرات اللي الإدارة تعينهالك هتظهر فوراً.</div></div>';
+}
+window.openResult=function(key,type){
+  const s=orders[key];if(!s||s.courierResult)return;
+  $('result-order').value=key;$('result-type').value=type;$('result-reason').value='العميل رفض الاستلام';
+  const amount=$('result-amount'),aw=$('amount-wrap'),rw=$('reason-wrap'),sub=$('result-sub'),title=$('result-title');
+  aw.style.display='block';rw.style.display='none';amount.readOnly=false;
+  if(type==='delivered'){title.textContent='✅ تأكيد التسليم';sub.textContent='راجع المبلغ الفعلي اللي استلمته قبل التأكيد.';amount.value=expectedCOD(s)}
+  if(type==='cancelled'){title.textContent='❌ إلغاء الأوردر';sub.textContent='الأوردر هيتسجل ملغي ومنتظر رجوعه للمخزن.';amount.value=0;aw.style.display='none';rw.style.display='block'}
+  if(type==='returned_paid_shipping'){title.textContent='↩️ مرتجع — العميل دفع الشحن';sub.textContent='سجل الشحن اللي استلمته فعلياً من العميل.';amount.value=shippingCharge(s);rw.style.display='block'}
+  if(type==='returned_unpaid_shipping'){title.textContent='↩️ مرتجع — العميل مدفعش الشحن';sub.textContent='مش هيتسجل أي تحصيل من العميل.';amount.value=0;amount.readOnly=true;rw.style.display='block'}
+  $('result-modal').classList.add('open')
+}
+window.closeResultModal=function(){$('result-modal').classList.remove('open')}
+window.saveResult=function(){
+  const key=$('result-order').value,type=$('result-type').value,s=orders[key];if(!s||s.courierResult)return closeResultModal();
+  let amount=Math.max(0,num($('result-amount').value)),reason=$('result-reason').value,updates={},ts=Date.now();
+  updates['sales/'+key+'/courierResult']=type;updates['sales/'+key+'/courierResultAt']=ts;updates['sales/'+key+'/courierCollectedAmount']=amount;updates['sales/'+key+'/courierSettledAt']=null;
+  updates['sales/'+key+'/courierCompletedBy']=currentCourier.id;updates['sales/'+key+'/courierCompletedByName']=currentCourier.name;
+  if(type==='delivered'){updates['sales/'+key+'/status']='تم التوصيل';updates['sales/'+key+'/deliveredAt']=ts;updates['sales/'+key+'/returnStockPending']=false}
+  else{
+    updates['sales/'+key+'/status']=type==='cancelled'?'ملغي':'مرتجع';updates['sales/'+key+'/returnedAt']=ts;updates['sales/'+key+'/returnStockPending']=true;updates['sales/'+key+'/returnReason']=reason;updates['sales/'+key+'/returnType']='courier';updates['sales/'+key+'/courierShippingPaid']=type==='returned_paid_shipping';updates['sales/'+key+'/courierShippingCollected']=type==='returned_paid_shipping'?amount:0;
+  }
+  const eid='CE-'+ts+'-'+key.slice(-5);updates['courier_events/'+eid]={id:eid,orderId:key,courierId:currentCourier.id,courierName:currentCourier.name,result:type,collectedAmount:amount,reason:type==='delivered'?'':reason,timestamp:ts,date:localDate(ts)};
+  $('result-save').disabled=true;$('result-save').textContent='جاري الحفظ...';
+  db.ref().update(updates).then(()=>{closeResultModal();navigator.vibrate&&navigator.vibrate(80)}).catch(e=>alert('حصل خطأ: '+e.message)).finally(()=>{$('result-save').disabled=false;$('result-save').textContent='تأكيد'});
+}
+window.handleAppBack=function(){if($('result-modal').classList.contains('open')){closeResultModal();return true}return false}
+window.addEventListener('DOMContentLoaded',init);
+</script>
+</body></html>
