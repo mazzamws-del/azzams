@@ -33,6 +33,13 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Bundle web dependencies
+        run: |
+          mkdir -p app/src/main/assets/vendor
+          curl -fL --retry 3 -o app/src/main/assets/vendor/firebase-app-compat.js https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js
+          curl -fL --retry 3 -o app/src/main/assets/vendor/firebase-database-compat.js https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js
+          curl -fL --retry 3 -o app/src/main/assets/vendor/firebase-auth-compat.js https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js
+
       - name: Build debug APK
         run: gradle assembleDebug
 
