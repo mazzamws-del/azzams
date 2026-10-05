@@ -5764,6 +5764,137 @@ window.addEventListener('DOMContentLoaded',function(){
 })();
 </script>
 
+
+<style id="azzams-moderators-admin-v1-style">
+.mod-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:16px}
+.mod-card{background:#fff;border:1px solid var(--border);border-radius:15px;padding:14px}
+.mod-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.mod-name{font-weight:900}.mod-phone{font-size:.72rem;color:var(--text-muted);direction:ltr}
+.mod-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:10px}.mod-kpi{background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}.mod-kpi b{display:block;font-size:1rem}.mod-kpi span{font-size:.65rem;color:var(--text-muted);font-weight:800}
+.mod-rate{margin-top:8px;border-radius:10px;padding:9px;text-align:center;background:#ecfdf5;color:#047857;font-weight:900}
+.mod-actions{display:flex;gap:6px;margin-top:9px}.mod-actions .btn{flex:1}
+@media(max-width:650px){.mod-grid{grid-template-columns:1fr}}
+</style>
+<script id="azzams-moderators-admin-v1">
+(function(){
+  window.moderatorsData=window.moderatorsData||{};
+  const $=id=>document.getElementById(id);
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const num=v=>Number(v)||0;
+  const money=v=>Math.round(num(v)).toLocaleString('ar-EG')+' ج';
+  const phone=v=>typeof normalizePhoneStr==='function'?normalizePhoneStr(v):String(v||'').replace(/\D/g,'');
+  async function sha256(v){const data=new TextEncoder().encode(String(v));const buf=await crypto.subtle.digest('SHA-256',data);return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+  function rowsFor(id){return Object.entries(window.salesData||salesData||{}).filter(([,s])=>s.sellerId===id)}
+  function closedStats(rows){const d=rows.filter(([,s])=>s.status==='تم التوصيل').length,b=rows.filter(([,s])=>['مرتجع','ملغي'].includes(s.status)).length;return {d,b,rate:(d+b)?Math.round(d/(d+b)*100):0}}
+
+  function mount(){
+    const nav=document.querySelector('#sidebar .sidebar-nav');
+    if(nav&&!$('nav-moderators')){
+      const btn=document.createElement('button');btn.id='nav-moderators';btn.className='nav-item';
+      btn.innerHTML='<span class="nav-icon">🎧</span> الموديريتورز <span class="nav-badge" id="nav-mod-count">0</span>';
+      btn.onclick=function(){showSection('moderators',btn);const t=$('topbar-title');if(t)t.innerText='الموديريتورز';renderModeratorsAdmin();};
+      const settingsBtn=[...nav.querySelectorAll('.nav-item')].find(b=>/الإعدادات/.test(b.textContent));
+      if(settingsBtn)nav.insertBefore(btn,settingsBtn);else nav.appendChild(btn);
+    }
+    const body=document.querySelector('.page-body');
+    if(body&&!$('section-moderators')){
+      const sec=document.createElement('div');sec.id='section-moderators';sec.className='section';
+      sec.innerHTML=`
+        <div class="sec-header"><div><div class="sec-title">🎧 إدارة الموديريتورز</div><div class="sec-sub">حسابات تسجيل الأوردرات ومتابعة جودة كل موديريتور.</div></div><button class="btn btn-primary btn-sm" onclick="openAddModeratorModal()">+ إضافة موديريتور</button></div>
+        <div id="mod-summary" class="stat-grid" style="margin-bottom:16px"></div>
+        <div id="mod-cards" class="mod-grid"></div>
+        <div class="data-table-wrap">
+          <div class="table-toolbar">
+            <select id="mod-orders-filter" style="width:auto;margin:0" onchange="renderModeratorsAdmin()"><option value="">كل الموديريتورز</option></select>
+            <input id="mod-orders-search" placeholder="بحث بالعميل أو الموبايل..." style="max-width:260px;margin:0" oninput="renderModeratorsAdmin()">
+          </div>
+          <div class="table-responsive"><table><thead><tr><th>الأوردر</th><th>الموديريتور</th><th>العميل</th><th>القيمة</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody id="mod-orders-list"></tbody></table></div>
+        </div>`;
+      body.appendChild(sec);
+    }
+    if(!$('overlay-add-moderator')){
+      const wrap=document.createElement('div');
+      wrap.innerHTML=`
+        <div class="modal-overlay" id="overlay-add-moderator"><div class="modal-box">
+          <button class="modal-close" onclick="closeModal('overlay-add-moderator')">✕</button>
+          <div class="modal-title">➕ إضافة موديريتور</div>
+          <label class="field-label">الاسم</label><input id="new-mod-name" placeholder="مثال: منة أحمد" style="margin-bottom:9px">
+          <label class="field-label">رقم الموبايل</label><input id="new-mod-phone" inputmode="tel" placeholder="01xxxxxxxxx" style="margin-bottom:9px">
+          <label class="field-label">PIN</label><input id="new-mod-pin" inputmode="numeric" maxlength="6" style="margin-bottom:9px">
+          <label class="field-label">المصدر الافتراضي</label><select id="new-mod-source"><option>تيك توك</option><option>فيسبوك</option><option>إنستجرام</option><option>واتساب</option><option>أخرى</option></select>
+          <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="saveModerator()">حفظ الحساب</button>
+        </div></div>`;
+      [...wrap.children].forEach(x=>document.body.appendChild(x));
+    }
+  }
+
+  window.openAddModeratorModal=function(){
+    $('new-mod-name').value='';$('new-mod-phone').value='';$('new-mod-pin').value=String(Math.floor(1000+Math.random()*9000));$('new-mod-source').value='تيك توك';openModal('overlay-add-moderator');
+  };
+  window.saveModerator=async function(){
+    const name=$('new-mod-name').value.trim(),ph=phone($('new-mod-phone').value),pin=$('new-mod-pin').value.trim(),source=$('new-mod-source').value;
+    if(!name||ph.length<10||pin.length<4)return alert('كمل الاسم والموبايل وPIN.');
+    if(Object.values(window.moderatorsData).some(m=>phone(m.phone)===ph))return alert('رقم الموديريتور موجود بالفعل.');
+    const id='MOD-'+Date.now(),pinHash=await sha256(pin);
+    await db.ref('moderators/'+id).set({id,name,phone:ph,pinHash,defaultSource:source,active:true,createdAt:Date.now()});
+    if(typeof logAction==='function')logAction('إضافة موديريتور: '+name);
+    closeModal('overlay-add-moderator');alert('✅ اتضاف '+name+'\n\nرقم الدخول: '+ph+'\nPIN: '+pin);
+  };
+  window.toggleModeratorActive=function(id){const m=window.moderatorsData[id];if(!m)return;db.ref('moderators/'+id+'/active').set(m.active===false)};
+  window.resetModeratorPin=async function(id){
+    const m=window.moderatorsData[id];if(!m)return;const pin=prompt('اكتب PIN جديد لـ '+m.name,'');if(!pin||pin.trim().length<4)return;
+    const pinHash=await sha256(pin.trim());await db.ref('moderators/'+id+'/pinHash').set(pinHash);alert('✅ تم تغيير PIN');
+  };
+
+  window.renderModeratorsAdmin=function(){
+    mount();
+    const mods=Object.values(window.moderatorsData),all=Object.entries(window.salesData||salesData||{}).filter(([,s])=>!!s.sellerId);
+    const activeMods=mods.filter(m=>m.active!==false).length,totalOrders=all.length,delivered=all.filter(([,s])=>s.status==='تم التوصيل').length,bad=all.filter(([,s])=>['مرتجع','ملغي'].includes(s.status)).length,rate=(delivered+bad)?Math.round(delivered/(delivered+bad)*100):0;
+    if($('mod-summary'))$('mod-summary').innerHTML=`
+      <div class="stat-card blue"><div class="stat-label">🎧 موديريتورز نشطين</div><div class="stat-value">${activeMods}</div></div>
+      <div class="stat-card amber"><div class="stat-label">🛒 إجمالي الأوردرات</div><div class="stat-value">${totalOrders}</div></div>
+      <div class="stat-card green"><div class="stat-label">✅ تم التسليم</div><div class="stat-value">${delivered}</div></div>
+      <div class="stat-card purple"><div class="stat-label">📈 نسبة التسليم</div><div class="stat-value">${rate}%</div></div>`;
+    const badge=$('nav-mod-count');if(badge){badge.innerText=activeMods;badge.style.display=activeMods?'inline':'none'}
+    const sel=$('mod-orders-filter');if(sel){const old=sel.value;sel.innerHTML='<option value="">كل الموديريتورز</option>'+mods.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>').join('');sel.value=old}
+    if($('mod-cards'))$('mod-cards').innerHTML=mods.map(m=>{
+      const rows=rowsFor(m.id),st=closedStats(rows),active=rows.filter(([,s])=>['قيد التجهيز','متابعة','مع المندوب','استبدال'].includes(s.status)).length,rev=rows.filter(([,s])=>s.status==='تم التوصيل').reduce((a,[,s])=>a+num(s.revenue)-num(s.discount),0);
+      return '<div class="mod-card"><div class="mod-head"><div><div class="mod-name">'+esc(m.name)+'</div><div class="mod-phone">'+esc(m.phone)+'</div><div style="font-size:.65rem;color:var(--text-muted);margin-top:3px">'+esc(m.defaultSource||'')+'</div></div><span class="status-badge '+(m.active===false?'status-returned':'status-delivered')+'">'+(m.active===false?'موقوف':'نشط')+'</span></div><div class="mod-kpis"><div class="mod-kpi"><b>'+rows.length+'</b><span>أوردر</span></div><div class="mod-kpi"><b>'+active+'</b><span>شغال</span></div><div class="mod-kpi"><b>'+st.d+'</b><span>تسليم</span></div><div class="mod-kpi"><b>'+st.b+'</b><span>مرتجع/ملغي</span></div></div><div class="mod-rate">نسبة التسليم: '+st.rate+'% · مبيعات مسلمة '+money(rev)+'</div><div class="mod-actions"><button class="btn btn-primary btn-sm" onclick="resetModeratorPin(\''+m.id+'\')">🔑 PIN</button><button class="btn btn-ghost btn-sm" onclick="toggleModeratorActive(\''+m.id+'\')">'+(m.active===false?'تفعيل':'إيقاف')+'</button></div></div>';
+    }).join('')||'<div class="alert alert-info show">لسه مفيش موديريتورز.</div>';
+
+    const fid=$('mod-orders-filter')?.value||'',q=($('mod-orders-search')?.value||'').trim().toLowerCase();
+    const rows=all.filter(([,s])=>(!fid||s.sellerId===fid)&&(!q||((s.customer||'')+' '+(s.phone||'')+' '+(s.sellerName||'')).toLowerCase().includes(q))).sort((a,b)=>num(b[1].timestamp)-num(a[1].timestamp)).slice(0,200);
+    if($('mod-orders-list'))$('mod-orders-list').innerHTML=rows.map(([k,s])=>'<tr><td><b>#'+esc(k.slice(-6))+'</b></td><td>'+esc(s.sellerName||'—')+'</td><td><b>'+esc(s.customer||'—')+'</b><div dir="ltr" style="font-size:.72rem;color:var(--text-muted)">'+esc(phone(s.phone))+'</div></td><td><b>'+money(num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount))+'</b></td><td><span class="status-badge '+(typeof getStatusClass==='function'?getStatusClass(s.status):'')+'">'+esc(s.status||'—')+'</span></td><td>'+esc(s.date||'—')+'</td></tr>').join('')||'<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text-muted)">لا توجد أوردرات</td></tr>';
+  };
+
+  function listenEvents(){
+    let last=Number(localStorage.getItem('azzamsModeratorAdminLastTs')||0);
+    db.ref('moderator_events').orderByChild('timestamp').limitToLast(80).on('value',snap=>{
+      const rows=[];snap.forEach(ch=>rows.push(ch.val()||{}));rows.sort((a,b)=>num(a.timestamp)-num(b.timestamp));
+      if(!last){last=rows.reduce((m,e)=>Math.max(m,num(e.timestamp)),0);if(last)localStorage.setItem('azzamsModeratorAdminLastTs',String(last));return}
+      const fresh=rows.filter(e=>num(e.timestamp)>last);
+      fresh.forEach(e=>{
+        let title='🎧 تحديث من موديريتور',body='';
+        if(e.type==='new_order'){title='🛒 أوردر جديد';body=(e.moderatorName||'موديريتور')+' سجل أوردر '+(e.customer||'')+' — المطلوب '+money(e.total||0)}
+        else if(e.type==='edit_order'){title='✏️ تعديل أوردر';body=(e.moderatorName||'موديريتور')+' عدّل بيانات أوردر '+(e.customer||'')}
+        if(typeof activeNotifications!=='undefined')activeNotifications.unshift({text:title+' — '+body,time:new Date(e.timestamp||Date.now()).toLocaleTimeString('ar-EG')});
+        const badge=$('notif-count-badge');if(badge){badge.innerText=activeNotifications.length;badge.style.display='inline'}
+        const mb=$('mobile-notif-badge');if(mb){mb.innerText=Math.min(99,activeNotifications.length);mb.style.display='flex'}
+        try{if(window.AndroidBridge&&AndroidBridge.notifyEvent)AndroidBridge.notifyEvent(title,body)}catch(_){}
+        last=Math.max(last,num(e.timestamp));
+      });
+      if(fresh.length)localStorage.setItem('azzamsModeratorAdminLastTs',String(last));
+    });
+  }
+
+  function boot(){
+    mount();
+    db.ref('moderators').on('value',snap=>{window.moderatorsData=snap.val()||{};renderModeratorsAdmin()});
+    try{listenEvents()}catch(e){console.warn(e)}
+    const old=window.updateUI;if(old&&!old.__modWrapped){const fn=function(){const r=old.apply(this,arguments);try{renderModeratorsAdmin()}catch(e){}return r};fn.__modWrapped=true;window.updateUI=fn}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
 <style id="azzams-admin-mobile-v13-style">
 #azzams-mobile-nav{display:none}
 #mobile-sales-cards{display:none}
