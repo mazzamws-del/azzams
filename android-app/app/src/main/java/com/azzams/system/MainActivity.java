@@ -31,6 +31,8 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+
 public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileChooserCallback;
@@ -45,6 +47,16 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.rgb(15, 17, 21));
         getWindow().setNavigationBarColor(Color.rgb(15, 17, 21));
         setupNotifications();
+        FirebaseMessaging.getInstance()
+                .subscribeToTopic("azzams_admin")
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Toast.makeText(
+                                MainActivity.this,
+                                "تعذر تفعيل إشعارات Azzams مؤقتاً",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
 
         webView = new WebView(this);
         webView.setLayoutParams(new FrameLayout.LayoutParams(
