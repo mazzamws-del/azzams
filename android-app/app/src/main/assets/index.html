@@ -2996,7 +2996,7 @@ function generateSaleRow([key, s], isDelivered) {
     let notes = s.notes ? `<div style="margin-top:5px;font-size:0.78rem;color:var(--warning);background:rgba(245,158,11,0.1);padding:4px 8px;border-radius:6px;">📝 ${s.notes}</div>` : '';
     let returnReason = s.returnReason ? `<div style="margin-top:5px;font-size:0.78rem;color:var(--danger);background:rgba(239,68,68,0.1);padding:4px 8px;border-radius:6px;">⚠️ ${s.returnReason}</div>` : '';
     let sellerTag = s.sellerName ? `<div style="margin-top:5px;font-size:0.78rem;color:#a78bfa;">👤 ${s.sellerName}</div>` : '';
-    let courierTag = s.courierName ? `<div style="margin-top:5px;font-size:0.75rem;color:#2563eb;background:#eff6ff;border:1px solid #dbeafe;padding:3px 7px;border-radius:7px;display:inline-block;">🚚 ${s.courierName}${s.courierSettledAt ? ' · تمت التسوية' : ''}</div>` : '';
+    let courierTag = s.courierName ? `<div style="margin-top:5px;font-size:0.75rem;color:#2563eb;background:#eff6ff;border:1px solid #dbeafe;padding:3px 7px;border-radius:7px;display:inline-block;">🚚 ${s.courierName}${s.courierPostponedUntil ? ' · ⏰ '+s.courierPostponedUntil : ''}${s.courierSettledAt ? ' · تمت التسوية' : ''}</div>${s.courierNote ? '<div style="margin-top:4px;font-size:.72rem;color:#475569;">🛵 '+(typeof v6Esc==='function'?v6Esc(s.courierNote):String(s.courierNote))+'</div>' : ''}` : '';
     let exchangeTag = (s.status === 'استبدال' || s.orderType === 'replacement') ? `<div style="font-size:0.75rem;background:rgba(109,40,217,0.15);color:#c4b5fd;padding:3px 8px;border-radius:6px;margin-top:5px;display:inline-block;">🔄 استبدال</div>` : '';
     let confirmTag = s.confirmed === true ? `<div style="font-size:0.72rem;color:#4ade80;margin-top:3px;">✅ العميل أكّد</div>` : s.confirmed === false ? `<div style="font-size:0.72rem;color:#f87171;margin-top:3px;">❌ العميل ملحقش يأكّد</div>` : '';
     let giftTag = s.freeWrapping ? ' 🎁' : '';
@@ -5778,18 +5778,30 @@ window.addEventListener('DOMContentLoaded',function(){
 </style>
 <script id="azzams-courier-admin-v1">
 (function(){
-  window.couriersData = window.couriersData || {};
+  window.couriersData=window.couriersData||{};
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const num=v=>Number(v)||0;
   const money=v=>Math.round(num(v)).toLocaleString('ar-EG')+' ج';
   const phone=v=>typeof normalizePhoneStr==='function'?normalizePhoneStr(v):String(v||'').replace(/\D/g,'');
-  const nowDate=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())};
+  const localDate=(ts)=>{const d=ts?new Date(ts):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())};
+
   function expectedCOD(s){
-    const ship=s.freeShipping?0:num(s.shipping);
-    const total=num(s.revenue)+ship-num(s.discount);
+    const customerShip=s.freeShipping?0:num(s.shipping);
+    const total=num(s.revenue)+customerShip-num(s.discount);
     const prepaid=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);
     return Math.max(0,total-prepaid);
+  }
+  function courierFee(s){
+    if(s.courierShippingFee!=null)return Math.max(0,num(s.courierShippingFee));
+    return Math.max(0,num(s.actualShippingCost!=null?s.actualShippingCost:s.shipping));
+  }
+  function calcMoney(s){
+    const collected=s.customerCollectedAmount!=null?num(s.customerCollectedAmount):num(s.courierCollectedAmount);
+    const fee=s.courierShippingFee!=null?num(s.courierShippingFee):(s.courierResult==='cancelled'?0:courierFee(s));
+    const storeDue=s.storeDueFromCourier!=null?num(s.storeDueFromCourier):Math.max(0,collected-fee);
+    const courierDue=s.courierDueFromStore!=null?num(s.courierDueFromStore):Math.max(0,fee-collected);
+    return {collected,fee,storeDue,courierDue,net:storeDue-courierDue};
   }
   function resultLabel(r){
     return ({delivered:'✅ تم التسليم',cancelled:'❌ ملغي',returned_paid_shipping:'↩️ مرتجع ودفع الشحن',returned_unpaid_shipping:'↩️ مرتجع ومدفعش الشحن'})[r]||'';
@@ -5802,45 +5814,64 @@ window.addEventListener('DOMContentLoaded',function(){
 
   function mountCourierAdmin(){
     const nav=document.querySelector('#sidebar .sidebar-nav');
-    if(nav && !$('nav-couriers')){
+    if(nav&&!$('nav-couriers')){
       const btn=document.createElement('button');
       btn.id='nav-couriers';btn.className='nav-item';
       btn.innerHTML='<span class="nav-icon">🛵</span> المندوبين <span class="nav-badge" id="nav-couriers-count">0</span>';
       btn.onclick=function(){showSection('couriers',btn);const t=$('topbar-title');if(t)t.innerText='المندوبين';renderCourierAdmin();};
-      const settings=[...nav.querySelectorAll('.nav-item')].find(b=>/الإعدادات/.test(b.textContent));
-      if(settings)nav.insertBefore(btn,settings);else nav.appendChild(btn);
+      const settingsBtn=[...nav.querySelectorAll('.nav-item')].find(b=>/الإعدادات/.test(b.textContent));
+      if(settingsBtn)nav.insertBefore(btn,settingsBtn);else nav.appendChild(btn);
     }
+
     const body=document.querySelector('.page-body');
-    if(body && !$('section-couriers')){
+    if(body&&!$('section-couriers')){
       const sec=document.createElement('div');
       sec.id='section-couriers';sec.className='section';
       sec.innerHTML=`
         <div class="sec-header">
-          <div><div class="sec-title">🛵 إدارة المندوبين</div><div style="font-size:.78rem;color:var(--text-muted);margin-top:4px;">تعيين الأوردرات، متابعة التحصيلات والمرتجعات، وتسوية كل مندوب.</div></div>
+          <div>
+            <div class="sec-title">🛵 إدارة المندوبين</div>
+            <div style="font-size:.78rem;color:var(--text-muted);margin-top:4px">تعيين الأوردرات، التأجيلات، ملاحظات المندوب، وصافي المبلغ المطلوب توريده.</div>
+          </div>
           <button class="btn btn-primary btn-sm" onclick="openAddCourierModal()">+ إضافة مندوب</button>
         </div>
-        <div id="courier-summary" class="stat-grid" style="margin-bottom:16px;"></div>
+        <div id="courier-summary" class="stat-grid" style="margin-bottom:16px"></div>
         <div id="courier-cards" class="courier-grid"></div>
         <div class="data-table-wrap">
           <div class="table-toolbar">
             <select id="courier-orders-filter" style="width:auto;margin:0" onchange="renderCourierAdmin()"><option value="">كل المندوبين</option></select>
             <select id="courier-result-filter" style="width:auto;margin:0" onchange="renderCourierAdmin()">
-              <option value="">كل الحالات</option><option value="active">مع المندوب</option><option value="delivered">تم التسليم</option><option value="returned">مرتجع</option><option value="cancelled">ملغي</option><option value="pending_return">مرتجع لم يرجع للمخزن</option>
+              <option value="">كل الحالات</option>
+              <option value="active">مع المندوب</option>
+              <option value="postponed">مؤجل</option>
+              <option value="delivered">تم التسليم</option>
+              <option value="returned">مرتجع</option>
+              <option value="cancelled">ملغي</option>
+              <option value="pending_return">مرتجع لم يرجع للمخزن</option>
             </select>
             <input id="courier-orders-search" placeholder="بحث بالعميل أو الموبايل..." style="max-width:260px;margin:0" oninput="renderCourierAdmin()">
           </div>
-          <div class="table-responsive"><table id="courier-admin-table"><thead><tr><th>الأوردر</th><th>المندوب</th><th>العميل</th><th>المطلوب</th><th>النتيجة</th><th>التحصيل</th><th>إجراء</th></tr></thead><tbody id="courier-admin-list"></tbody></table></div>
+          <div class="table-responsive">
+            <table id="courier-admin-table">
+              <thead><tr><th>الأوردر</th><th>المندوب</th><th>العميل</th><th>الحالة</th><th>تحصيل العميل</th><th>هستلم منه</th><th>ملاحظة المندوب</th><th>إجراء</th></tr></thead>
+              <tbody id="courier-admin-list"></tbody>
+            </table>
+          </div>
         </div>`;
       body.appendChild(sec);
     }
 
     const qa=document.querySelector('#section-sales .quick-actions');
-    if(qa && !$('bulk-assign-courier-btn')){
-      const b=document.createElement('button');b.id='bulk-assign-courier-btn';b.className='btn btn-warning btn-sm';b.innerHTML='🛵 تعيين مندوب';b.onclick=()=>openCourierAssignModal('.sale-cb:checked');qa.insertBefore(b,qa.firstChild);
+    if(qa&&!$('bulk-assign-courier-btn')){
+      const b=document.createElement('button');
+      b.id='bulk-assign-courier-btn';b.className='btn btn-warning btn-sm';b.innerHTML='🛵 تعيين مندوب';
+      b.onclick=()=>openCourierAssignModal('.sale-cb:checked');
+      qa.insertBefore(b,qa.firstChild);
     }
 
     if(!$('overlay-courier-assign')){
-      const div=document.createElement('div');div.innerHTML=`
+      const div=document.createElement('div');
+      div.innerHTML=`
         <div class="modal-overlay" id="overlay-courier-assign">
           <div class="modal-box">
             <button class="modal-close" onclick="closeModal('overlay-courier-assign')">✕</button>
@@ -5849,8 +5880,11 @@ window.addEventListener('DOMContentLoaded',function(){
             <label class="field-label">اختار المندوب</label>
             <select id="courier-assign-select" style="margin-bottom:12px"></select>
             <div id="courier-assign-count" class="alert alert-info show" style="margin-bottom:12px"></div>
-            <div class="courier-assign-note">بمجرد التعيين، الأوردر هيتحول لـ <b>مع المندوب</b> ويظهر فوراً في تطبيق المندوب.</div>
-            <div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-primary" style="flex:1" onclick="confirmCourierAssignment()">تأكيد التعيين</button><button class="btn btn-ghost" onclick="closeModal('overlay-courier-assign')">إلغاء</button></div>
+            <div class="courier-assign-note">بمجرد التعيين، الأوردر هيظهر فوراً في تطبيق المندوب.</div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button class="btn btn-primary" style="flex:1" onclick="confirmCourierAssignment()">تأكيد التعيين</button>
+              <button class="btn btn-ghost" onclick="closeModal('overlay-courier-assign')">إلغاء</button>
+            </div>
           </div>
         </div>
         <div class="modal-overlay" id="overlay-add-courier">
@@ -5860,7 +5894,7 @@ window.addEventListener('DOMContentLoaded',function(){
             <label class="field-label">اسم المندوب</label><input id="new-courier-name" placeholder="مثال: أحمد محمد" style="margin-bottom:10px">
             <label class="field-label">رقم الموبايل</label><input id="new-courier-phone" inputmode="tel" placeholder="01xxxxxxxxx" style="margin-bottom:10px">
             <label class="field-label">PIN دخول التطبيق</label><input id="new-courier-pin" inputmode="numeric" maxlength="6" placeholder="مثال: 2580" style="margin-bottom:8px">
-            <div style="font-size:.72rem;color:var(--text-muted);line-height:1.7">المندوب هيدخل في Azzams Courier برقم موبايله + الـPIN. الـPIN نفسه مش بيتخزن كنص صريح.</div>
+            <div style="font-size:.72rem;color:var(--text-muted);line-height:1.7">المندوب هيدخل برقم موبايله + PIN.</div>
             <button class="btn btn-primary" style="width:100%;margin-top:15px" onclick="saveNewCourier()">حفظ المندوب</button>
           </div>
         </div>`;
@@ -5869,23 +5903,22 @@ window.addEventListener('DOMContentLoaded',function(){
   }
 
   window.openAddCourierModal=function(){
-    $('new-courier-name').value='';$('new-courier-phone').value='';$('new-courier-pin').value=String(Math.floor(1000+Math.random()*9000));openModal('overlay-add-courier');
+    $('new-courier-name').value='';$('new-courier-phone').value='';
+    $('new-courier-pin').value=String(Math.floor(1000+Math.random()*9000));
+    openModal('overlay-add-courier');
   };
   window.saveNewCourier=async function(){
     const name=$('new-courier-name').value.trim(),ph=phone($('new-courier-phone').value),pin=$('new-courier-pin').value.trim();
     if(!name||ph.length<10||pin.length<4)return alert('اكتب الاسم ورقم صحيح وPIN من 4 أرقام على الأقل.');
-    const exists=Object.values(window.couriersData).some(c=>phone(c.phone)===ph);
-    if(exists)return alert('رقم المندوب موجود بالفعل.');
-    const id='CR-'+Date.now();
-    const pinHash=await sha256(pin);
+    if(Object.values(window.couriersData).some(c=>phone(c.phone)===ph))return alert('رقم المندوب موجود بالفعل.');
+    const id='CR-'+Date.now(),pinHash=await sha256(pin);
     await db.ref('couriers/'+id).set({id,name,phone:ph,pinHash,active:true,createdAt:Date.now()});
     if(typeof logAction==='function')logAction('إضافة مندوب: '+name);
-    closeModal('overlay-add-courier');alert('✅ اتضاف '+name+'\n\nرقم الدخول: '+ph+'\nPIN: '+pin+'\n\nابعتهم للمندوب.');
+    closeModal('overlay-add-courier');
+    alert('✅ اتضاف '+name+'\n\nرقم الدخول: '+ph+'\nPIN: '+pin);
   };
 
-  window.assignCourierToOne=function(key){
-    $('courier-assign-single').value=key;openCourierAssignModal(null,key);
-  };
+  window.assignCourierToOne=function(key){openCourierAssignModal(null,key)};
   window.openCourierAssignModal=function(selector,key){
     mountCourierAdmin();
     const active=Object.values(window.couriersData).filter(c=>c.active!==false);
@@ -5893,7 +5926,6 @@ window.addEventListener('DOMContentLoaded',function(){
     $('courier-assign-select').innerHTML=active.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+' — '+esc(c.phone)+'</option>').join('');
     const keys=key?[key]:[...document.querySelectorAll(selector||'.sale-cb:checked')].map(x=>x.value);
     if(!keys.length)return alert('حدد أوردرات الأول.');
-    $('courier-assign-single').value=key||'';
     $('courier-assign-count').textContent='هيتم تعيين '+keys.length+' أوردر للمندوب المختار.';
     $('courier-assign-count').dataset.keys=JSON.stringify(keys);
     openModal('overlay-courier-assign');
@@ -5901,85 +5933,135 @@ window.addEventListener('DOMContentLoaded',function(){
   window.confirmCourierAssignment=function(){
     let keys=[];try{keys=JSON.parse($('courier-assign-count').dataset.keys||'[]')}catch(e){}
     const cid=$('courier-assign-select').value,c=window.couriersData[cid];if(!keys.length||!c)return;
-    const updates={};keys.forEach(k=>{
-      updates['sales/'+k+'/courierId']=cid;updates['sales/'+k+'/courierName']=c.name;updates['sales/'+k+'/courierPhone']=c.phone;
-      updates['sales/'+k+'/courierAssignedAt']=Date.now();updates['sales/'+k+'/courierResult']=null;updates['sales/'+k+'/courierCollectedAmount']=0;
-      updates['sales/'+k+'/courierSettledAt']=null;updates['sales/'+k+'/status']='مع المندوب';
+    const updates={};
+    keys.forEach(k=>{
+      const base='sales/'+k+'/';
+      updates[base+'courierId']=cid;updates[base+'courierName']=c.name;updates[base+'courierPhone']=c.phone;
+      updates[base+'courierAssignedAt']=Date.now();updates[base+'courierResult']=null;updates[base+'courierResultAt']=null;
+      updates[base+'courierDeliveryState']='active';updates[base+'courierPostponedUntil']=null;updates[base+'courierPostponeNote']=null;
+      updates[base+'courierNote']=null;updates[base+'customerCollectedAmount']=0;updates[base+'courierCollectedAmount']=0;
+      updates[base+'courierShippingFee']=null;updates[base+'storeDueFromCourier']=0;updates[base+'courierDueFromStore']=0;
+      updates[base+'courierSettledAt']=null;updates[base+'courierSettlementId']=null;updates[base+'status']='مع المندوب';
     });
-    db.ref().update(updates).then(()=>{if(typeof logAction==='function')logAction('تعيين '+keys.length+' أوردر للمندوب '+c.name);closeModal('overlay-courier-assign');alert('✅ تم تعيين '+keys.length+' أوردر لـ '+c.name);});
+    db.ref().update(updates).then(()=>{
+      if(typeof logAction==='function')logAction('تعيين '+keys.length+' أوردر للمندوب '+c.name);
+      closeModal('overlay-courier-assign');alert('✅ تم التعيين لـ '+c.name);
+    }).catch(err=>alert('حصل خطأ: '+err.message));
   };
 
   window.unassignCourier=function(key){
     const s=salesData[key];if(!s||!confirm('إلغاء تعيين '+(s.courierName||'المندوب')+' من الأوردر؟'))return;
-    db.ref('sales/'+key).update({courierId:null,courierName:null,courierPhone:null,courierAssignedAt:null,courierResult:null,status:'قيد التجهيز'});
+    db.ref('sales/'+key).update({
+      courierId:null,courierName:null,courierPhone:null,courierAssignedAt:null,courierResult:null,
+      courierDeliveryState:null,courierPostponedUntil:null,courierPostponeNote:null,courierNote:null,status:'قيد التجهيز'
+    });
   };
 
   window.receiveCourierReturn=function(key){
     const s=salesData[key];if(!s||!s.returnStockPending)return;
     if(!confirm('تأكيد إن المرتجع رجع المخزن فعلياً؟\nهيتم إضافة القطع للمخزون.'))return;
     if(typeof restoreStock==='function')restoreStock(s);
-    db.ref('sales/'+key).update({returnStockPending:false,returnStockReceivedAt:Date.now()}).then(()=>{if(typeof logAction==='function')logAction('استلام مرتجع للمخزون: '+s.customer);});
+    db.ref('sales/'+key).update({returnStockPending:false,returnStockReceivedAt:Date.now()}).then(()=>{
+      if(typeof logAction==='function')logAction('استلام مرتجع للمخزون: '+s.customer);
+    });
   };
 
   window.settleCourier=function(cid){
     const c=window.couriersData[cid];if(!c)return;
-    const orders=Object.entries(salesData).filter(([,s])=>s.courierId===cid&&s.courierResult&&!s.courierSettledAt);
-    const total=orders.reduce((a,[,s])=>a+num(s.courierCollectedAmount),0);
-    if(!orders.length)return alert('مفيش تحصيلات جديدة للتسوية.');
-    if(!confirm('تسوية '+c.name+'؟\n\nعدد الأوردرات: '+orders.length+'\nالمبلغ المورد: '+money(total)))return;
-    const id='CSET-'+Date.now(),updates={};
-    orders.forEach(([k])=>{updates['sales/'+k+'/courierSettledAt']=Date.now();updates['sales/'+k+'/courierSettlementId']=id;});
-    updates['courier_settlements/'+id]={id,courierId:cid,courierName:c.name,orders:orders.map(([k])=>k),ordersCount:orders.length,amount:total,date:nowDate(),timestamp:Date.now()};
-    db.ref().update(updates).then(()=>{if(typeof logAction==='function')logAction('تسوية مندوب '+c.name+' بقيمة '+Math.round(total));alert('✅ تمت التسوية');});
+    const rows=Object.entries(salesData).filter(([,s])=>s.courierId===cid&&s.courierResult&&!s.courierSettledAt);
+    if(!rows.length)return alert('مفيش أوردرات جديدة للتسوية.');
+    let receivable=0,payable=0;
+    const lines=rows.map(([key,s])=>{
+      const m=calcMoney(s);receivable+=m.storeDue;payable+=m.courierDue;
+      return {orderId:key,result:s.courierResult,customerCollected:m.collected,courierFee:m.fee,storeDue:m.storeDue,courierDue:m.courierDue};
+    });
+    const net=receivable-payable;
+    const msg='تسوية '+c.name+'\n\nهتستلم منه: '+money(receivable)+'\nله عندك: '+money(payable)+'\nالصافي: '+money(Math.abs(net))+' '+(net>0?'هتستلمه منه':net<0?'هتدفعه له':'متساوي')+'\n\nتأكيد؟';
+    if(!confirm(msg))return;
+    const id='CSET-'+Date.now(),updates={},ts=Date.now();
+    rows.forEach(([k,s])=>{
+      const m=calcMoney(s);
+      updates['sales/'+k+'/customerCollectedAmount']=m.collected;
+      updates['sales/'+k+'/courierShippingFee']=m.fee;
+      updates['sales/'+k+'/storeDueFromCourier']=m.storeDue;
+      updates['sales/'+k+'/courierDueFromStore']=m.courierDue;
+      updates['sales/'+k+'/courierSettledAt']=ts;
+      updates['sales/'+k+'/courierSettlementId']=id;
+    });
+    updates['courier_settlements/'+id]={
+      id,courierId:cid,courierName:c.name,orders:rows.map(([k])=>k),ordersCount:rows.length,
+      receivableFromCourier:receivable,payableToCourier:payable,netBalance:net,lines,date:localDate(),timestamp:ts
+    };
+    db.ref().update(updates).then(()=>{
+      if(typeof logAction==='function')logAction('تسوية مندوب '+c.name+' — نستلم '+Math.round(receivable)+' — له '+Math.round(payable));
+      alert('✅ تمت التسوية\n\nاستلمت منه: '+money(receivable)+'\nحقه عندك: '+money(payable));
+    }).catch(err=>alert('حصل خطأ: '+err.message));
   };
 
   window.toggleCourierActive=function(cid){
-    const c=window.couriersData[cid];if(!c)return;db.ref('couriers/'+cid+'/active').set(c.active===false?true:false);
+    const c=window.couriersData[cid];if(!c)return;
+    db.ref('couriers/'+cid+'/active').set(c.active===false);
   };
 
   window.renderCourierAdmin=function(){
     mountCourierAdmin();
-    const couriers=Object.values(window.couriersData);
-    const orders=Object.entries(salesData||{}).filter(([,s])=>!!s.courierId);
+    const couriers=Object.values(window.couriersData),orders=Object.entries(salesData||{}).filter(([,s])=>!!s.courierId);
     const activeCount=couriers.filter(c=>c.active!==false).length;
-    const activeOrders=orders.filter(([,s])=>s.status==='مع المندوب').length;
+    const today=localDate();
+    const activeOrders=orders.filter(([,s])=>!s.courierResult&&(!s.courierPostponedUntil||s.courierPostponedUntil<=today)).length;
+    const postponed=orders.filter(([,s])=>!s.courierResult&&s.courierPostponedUntil&&s.courierPostponedUntil>today).length;
     const pendingReturns=orders.filter(([,s])=>s.returnStockPending).length;
-    const cash=orders.filter(([,s])=>s.courierResult&&!s.courierSettledAt).reduce((a,[,s])=>a+num(s.courierCollectedAmount),0);
+    let receivable=0,payable=0;
+    orders.filter(([,s])=>s.courierResult&&!s.courierSettledAt).forEach(([,s])=>{const m=calcMoney(s);receivable+=m.storeDue;payable+=m.courierDue;});
+
     if($('courier-summary'))$('courier-summary').innerHTML=`
       <div class="stat-card blue"><div class="stat-label">🛵 مندوبين نشطين</div><div class="stat-value">${activeCount}</div></div>
-      <div class="stat-card amber"><div class="stat-label">📦 مع المندوبين الآن</div><div class="stat-value">${activeOrders}</div></div>
-      <div class="stat-card green"><div class="stat-label">💵 تحصيلات لم تُسوّى</div><div class="stat-value">${money(cash)}</div></div>
+      <div class="stat-card amber"><div class="stat-label">📦 للتوصيل الآن</div><div class="stat-value">${activeOrders}</div></div>
+      <div class="stat-card purple"><div class="stat-label">⏰ مؤجل</div><div class="stat-value">${postponed}</div></div>
+      <div class="stat-card green"><div class="stat-label">💵 هستلم من المندوبين</div><div class="stat-value">${money(receivable)}</div></div>
+      <div class="stat-card amber"><div class="stat-label">💸 للمندوبين عندي</div><div class="stat-value">${money(payable)}</div></div>
       <div class="stat-card red"><div class="stat-label">↩️ مرتجعات منتظرة المخزن</div><div class="stat-value">${pendingReturns}</div></div>`;
-    const badge=$('nav-couriers-count');if(badge){badge.innerText=activeOrders;badge.style.display=activeOrders?'inline':'none';}
-    const filter=$('courier-orders-filter');
-    if(filter){
-      const old=filter.value;filter.innerHTML='<option value="">كل المندوبين</option>'+couriers.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');filter.value=old;
+
+    const badge=$('nav-couriers-count');if(badge){badge.innerText=activeOrders+postponed;badge.style.display=(activeOrders+postponed)?'inline':'none';}
+    const filterEl=$('courier-orders-filter');
+    if(filterEl){
+      const old=filterEl.value;
+      filterEl.innerHTML='<option value="">كل المندوبين</option>'+couriers.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');
+      filterEl.value=old;
     }
+
     if($('courier-cards'))$('courier-cards').innerHTML=couriers.map(c=>{
       const co=orders.filter(([,s])=>s.courierId===c.id);
-      const assigned=co.filter(([,s])=>s.status==='مع المندوب').length;
+      const assigned=co.filter(([,s])=>!s.courierResult&&(!s.courierPostponedUntil||s.courierPostponedUntil<=today)).length;
+      const postponedCount=co.filter(([,s])=>!s.courierResult&&s.courierPostponedUntil&&s.courierPostponedUntil>today).length;
       const delivered=co.filter(([,s])=>s.courierResult==='delivered').length;
       const returned=co.filter(([,s])=>String(s.courierResult||'').startsWith('returned')).length;
-      const due=co.filter(([,s])=>s.courierResult&&!s.courierSettledAt).reduce((a,[,s])=>a+num(s.courierCollectedAmount),0);
-      return '<div class="courier-card"><div class="courier-card-head"><div><div class="courier-card-name">'+esc(c.name)+'</div><div class="courier-card-phone">'+esc(c.phone)+'</div></div><span class="status-badge '+(c.active===false?'status-returned':'status-delivered')+'">'+(c.active===false?'موقوف':'نشط')+'</span></div><div class="courier-kpis"><div class="courier-kpi"><b>'+assigned+'</b><span>معاه الآن</span></div><div class="courier-kpi"><b>'+delivered+'</b><span>تم تسليم</span></div><div class="courier-kpi"><b>'+returned+'</b><span>مرتجع</span></div><div class="courier-kpi"><b>'+co.length+'</b><span>إجمالي</span></div></div><div class="courier-cash">عنده تحصيلات: '+money(due)+'</div><div style="display:flex;gap:6px;margin-top:9px"><button class="btn btn-primary btn-sm" style="flex:1" onclick="settleCourier(\''+c.id+'\')">💰 تسوية</button><button class="btn btn-ghost btn-sm" onclick="toggleCourierActive(\''+c.id+'\')">'+(c.active===false?'تفعيل':'إيقاف')+'</button></div></div>';
+      let due=0,owe=0;
+      co.filter(([,s])=>s.courierResult&&!s.courierSettledAt).forEach(([,s])=>{const m=calcMoney(s);due+=m.storeDue;owe+=m.courierDue;});
+      return '<div class="courier-card"><div class="courier-card-head"><div><div class="courier-card-name">'+esc(c.name)+'</div><div class="courier-card-phone">'+esc(c.phone)+'</div></div><span class="status-badge '+(c.active===false?'status-returned':'status-delivered')+'">'+(c.active===false?'موقوف':'نشط')+'</span></div><div class="courier-kpis"><div class="courier-kpi"><b>'+assigned+'</b><span>للتوصيل</span></div><div class="courier-kpi"><b>'+postponedCount+'</b><span>مؤجل</span></div><div class="courier-kpi"><b>'+delivered+'</b><span>تسليم</span></div><div class="courier-kpi"><b>'+returned+'</b><span>مرتجع</span></div></div><div class="courier-cash">هستلم منه: '+money(due)+'</div>'+(owe>0?'<div style="margin-top:6px;text-align:center;font-size:.78rem;font-weight:900;color:var(--warning)">له عندي: '+money(owe)+'</div>':'')+'<div style="display:flex;gap:6px;margin-top:9px"><button class="btn btn-primary btn-sm" style="flex:1" onclick="settleCourier(\''+c.id+'\')">💰 تسوية</button><button class="btn btn-ghost btn-sm" onclick="toggleCourierActive(\''+c.id+'\')">'+(c.active===false?'تفعيل':'إيقاف')+'</button></div></div>';
     }).join('')||'<div class="alert alert-info show">لسه مفيش مندوبين. اضغط إضافة مندوب.</div>';
 
     const cid=$('courier-orders-filter')?.value||'',rf=$('courier-result-filter')?.value||'',q=($('courier-orders-search')?.value||'').trim().toLowerCase();
     let list=orders.filter(([,s])=>{
       if(cid&&s.courierId!==cid)return false;
-      if(rf==='active'&&s.status!=='مع المندوب')return false;
+      if(rf==='active'&&(s.courierResult||(s.courierPostponedUntil&&s.courierPostponedUntil>today)))return false;
+      if(rf==='postponed'&&(s.courierResult||!s.courierPostponedUntil||s.courierPostponedUntil<=today))return false;
       if(rf==='delivered'&&s.courierResult!=='delivered')return false;
       if(rf==='returned'&&!String(s.courierResult||'').startsWith('returned'))return false;
       if(rf==='cancelled'&&s.courierResult!=='cancelled')return false;
       if(rf==='pending_return'&&!s.returnStockPending)return false;
-      if(q&&!((s.customer||'')+' '+(s.phone||'')+' '+(s.courierName||'')).toLowerCase().includes(q))return false;
+      if(q&&!((s.customer||'')+' '+(s.phone||'')+' '+(s.courierName||'')+' '+(s.courierNote||'')+' '+(s.courierPostponeNote||'')).toLowerCase().includes(q))return false;
       return true;
     }).sort((a,b)=>num(b[1].courierAssignedAt)-num(a[1].courierAssignedAt));
+
     if($('courier-admin-list'))$('courier-admin-list').innerHTML=list.map(([k,s])=>{
-      const result=resultLabel(s.courierResult)|| (s.status==='مع المندوب'?'🚚 مع المندوب':s.status||'—');
+      const m=calcMoney(s);
+      const postponedText=!s.courierResult&&s.courierPostponedUntil?'⏰ مؤجل لـ '+s.courierPostponedUntil:'';
+      const result=resultLabel(s.courierResult)||postponedText||(s.status==='مع المندوب'?'🚚 مع المندوب':s.status||'—');
+      const note=[s.courierNote,s.courierPostponeNote].filter(Boolean).join(' — ');
       const act=s.returnStockPending?'<button class="btn btn-success btn-sm" onclick="receiveCourierReturn(\''+k+'\')">📦 استلام للمخزن</button>':(!s.courierResult?'<button class="btn btn-danger btn-sm" onclick="unassignCourier(\''+k+'\')">إلغاء التعيين</button>':'');
-      return '<tr><td><b>#'+esc(k.slice(-6))+'</b><div style="font-size:.7rem;color:var(--text-muted)">'+esc(s.date||'')+'</div></td><td><b>'+esc(s.courierName||'—')+'</b></td><td><b>'+esc(s.customer||'—')+'</b><div dir="ltr" style="font-size:.76rem;color:var(--text-muted)">'+esc(phone(s.phone))+'</div></td><td><b>'+money(expectedCOD(s))+'</b></td><td><span class="courier-result-pill">'+esc(result)+'</span></td><td><b>'+money(s.courierCollectedAmount||0)+'</b><div style="font-size:.68rem;color:'+(s.courierSettledAt?'var(--success)':'var(--warning)')+'">'+(s.courierSettledAt?'تمت التسوية':'غير مسوّى')+'</div></td><td>'+act+'</td></tr>';
-    }).join('')||'<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text-muted)">لا توجد أوردرات للمندوبين</td></tr>';
+      return '<tr><td><b>#'+esc(k.slice(-6))+'</b><div style="font-size:.7rem;color:var(--text-muted)">'+esc(s.date||'')+'</div></td><td><b>'+esc(s.courierName||'—')+'</b></td><td><b>'+esc(s.customer||'—')+'</b><div dir="ltr" style="font-size:.76rem;color:var(--text-muted)">'+esc(phone(s.phone))+'</div></td><td><span class="courier-result-pill">'+esc(result)+'</span></td><td><b>'+money(s.courierResult?m.collected:expectedCOD(s))+'</b></td><td><b style="color:var(--success)">'+money(m.storeDue)+'</b>'+(m.courierDue>0?'<div style="font-size:.68rem;color:var(--warning)">له عندي '+money(m.courierDue)+'</div>':'')+'<div style="font-size:.68rem;color:'+(s.courierSettledAt?'var(--success)':'var(--warning)')+'">'+(s.courierResult?(s.courierSettledAt?'تمت التسوية':'غير مسوّى'):'—')+'</div></td><td style="max-width:210px;white-space:normal;font-size:.78rem">'+esc(note||'—')+'</td><td>'+act+'</td></tr>';
+    }).join('')||'<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text-muted)">لا توجد أوردرات للمندوبين</td></tr>';
   };
 
   function onReady(){
