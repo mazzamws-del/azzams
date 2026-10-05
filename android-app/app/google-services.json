@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "528435966223",
+    "firebase_url": "https://azzams-system-default-rtdb.firebaseio.com",
+    "project_id": "azzams-system",
+    "storage_bucket": "azzams-system.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:528435966223:android:899ba29bd04c4700b58e7a",
+        "android_client_info": {
+          "package_name": "com.azzams.system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAI0IkbgFZDrMhVGKxltUv7xp1uCZ97fuk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
