@@ -48,23 +48,23 @@ jobs:
       - name: Prepare APK files
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/Azzams-System-1.2.0.apk
-          cp app/src/main/assets/index.html dist/Azzams-System-1.2.0.html
-          cp courier/build/outputs/apk/debug/courier-debug.apk dist/Azzams-Courier-1.1.0.apk
-          sed -i 's#vendor/firebase-app-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js#g' dist/Azzams-System-1.2.0.html
-          sed -i 's#vendor/firebase-database-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js#g' dist/Azzams-System-1.2.0.html
-          sed -i 's#vendor/firebase-auth-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js#g' dist/Azzams-System-1.2.0.html
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Azzams-System-1.3.0.apk
+          cp app/src/main/assets/index.html dist/Azzams-System-1.3.0.html
+          cp courier/build/outputs/apk/debug/courier-debug.apk dist/Azzams-Courier-1.2.0.apk
+          sed -i 's#vendor/firebase-app-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js#g' dist/Azzams-System-1.3.0.html
+          sed -i 's#vendor/firebase-database-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js#g' dist/Azzams-System-1.3.0.html
+          sed -i 's#vendor/firebase-auth-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js#g' dist/Azzams-System-1.3.0.html
 
       - uses: actions/upload-artifact@v4
         with:
           name: Azzams-System-APK
           path: |
-            android-app/dist/Azzams-System-1.2.0.apk
-            android-app/dist/Azzams-System-1.2.0.html
+            android-app/dist/Azzams-System-1.3.0.apk
+            android-app/dist/Azzams-System-1.3.0.html
           retention-days: 30
 
       - uses: actions/upload-artifact@v4
         with:
           name: Azzams-Courier-APK
-          path: android-app/dist/Azzams-Courier-1.1.0.apk
+          path: android-app/dist/Azzams-Courier-1.2.0.apk
           retention-days: 30
