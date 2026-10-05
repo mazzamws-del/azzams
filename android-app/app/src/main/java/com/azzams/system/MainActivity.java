@@ -3,11 +3,18 @@ package com.azzams.system;
 import android.app.Activity;
 import android.app.Dialog;
 import android.app.DownloadManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Environment;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
@@ -28,12 +35,16 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileChooserCallback;
     private static final int FILE_CHOOSER_REQUEST = 1001;
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 2001;
+    private static final String EVENTS_CHANNEL_ID = "azzams_events";
+    private int notificationSeq = 3000;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(Color.rgb(15, 17, 21));
         getWindow().setNavigationBarColor(Color.rgb(15, 17, 21));
+        setupNotifications();
 
         webView = new WebView(this);
         webView.setLayoutParams(new FrameLayout.LayoutParams(
@@ -187,6 +198,68 @@ public class MainActivity extends Activity {
         v.evaluateJavascript(js, null);
     }
 
+    private void setupNotifications() {
+        NotificationManager manager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    EVENTS_CHANNEL_ID,
+                    "Azzams Operations",
+                    NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("تنبيهات الأوردرات والمندوبين");
+            channel.enableVibration(true);
+            manager.createNotificationChannel(channel);
+        }
+
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_REQUEST);
+        }
+    }
+
+    private void showNativeNotification(String title, String body) {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        NotificationManager manager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification.Builder builder =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        ? new Notification.Builder(this, EVENTS_CHANNEL_ID)
+                        : new Notification.Builder(this);
+
+        builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title == null || title.isEmpty() ? "Azzams" : title)
+                .setContentText(body == null ? "" : body)
+                .setStyle(new Notification.BigTextStyle().bigText(body == null ? "" : body))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setWhen(System.currentTimeMillis());
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            builder.setPriority(Notification.PRIORITY_HIGH);
+        }
+
+        manager.notify(notificationSeq++, builder.build());
+    }
+
     private void openExternal(Uri uri) {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -203,6 +276,11 @@ public class MainActivity extends Activity {
 
         AndroidBridge(WebView printableView) {
             this.printableView = printableView;
+        }
+
+        @JavascriptInterface
+        public void notifyEvent(String title, String body) {
+            runOnUiThread(() -> showNativeNotification(title, body));
         }
 
         @JavascriptInterface
