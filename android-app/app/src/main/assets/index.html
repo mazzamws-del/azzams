@@ -5879,7 +5879,7 @@ window.addEventListener('DOMContentLoaded',function(){
         if(typeof activeNotifications!=='undefined')activeNotifications.unshift({text:title+' — '+body,time:new Date(e.timestamp||Date.now()).toLocaleTimeString('ar-EG')});
         const badge=$('notif-count-badge');if(badge){badge.innerText=activeNotifications.length;badge.style.display='inline'}
         const mb=$('mobile-notif-badge');if(mb){mb.innerText=Math.min(99,activeNotifications.length);mb.style.display='flex'}
-        try{if(window.AndroidBridge&&AndroidBridge.notifyEvent)AndroidBridge.notifyEvent(title,body)}catch(_){}
+        // Android push is handled by FCM; keep only the in-app notification center here.
         last=Math.max(last,num(e.timestamp));
       });
       if(fresh.length)localStorage.setItem('azzamsModeratorAdminLastTs',String(last));
@@ -6021,7 +6021,7 @@ window.addEventListener('DOMContentLoaded',function(){
   }
 
   function nativeNotify(title,body){
-    try{if(window.AndroidBridge&&typeof AndroidBridge.notifyEvent==='function')AndroidBridge.notifyEvent(String(title||'Azzams'),String(body||''))}catch(e){}
+    // Android push is handled by FCM. This avoids duplicate system notifications.
   }
   function eventText(e){
     const sale=(window.salesData||salesData||{})[e.orderId]||{};
