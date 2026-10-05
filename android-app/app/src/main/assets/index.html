@@ -5762,6 +5762,189 @@ window.addEventListener('DOMContentLoaded',function(){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
 </script>
+
+<style id="azzams-admin-mobile-v13-style">
+#azzams-mobile-nav{display:none}
+#mobile-sales-cards{display:none}
+.mobile-notif-badge{display:none}
+@media(max-width:900px){
+  body{padding-bottom:82px!important}
+  .page-body{padding:12px 10px 92px!important}
+  #topbar{height:auto!important;min-height:58px!important;padding:7px 10px!important}
+  #topbar .topbar-right .btn-primary{display:none!important}
+  #topbar .topbar-right{gap:6px!important}
+  #topbar .btn-icon{min-width:40px!important;min-height:40px!important}
+  .sec-header{align-items:flex-start!important;gap:10px!important}
+  #section-sales .quick-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important}
+  #section-sales .quick-actions .btn,#section-sales .quick-actions select{width:100%!important;margin:0!important}
+  #section-sales .quick-actions #selected-badge{grid-column:1/-1;text-align:center}
+  #section-sales .data-table-wrap .table-responsive{display:none!important}
+  #mobile-sales-cards{display:flex!important;flex-direction:column;gap:10px;padding:10px}
+  .m-order-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:13px;box-shadow:0 2px 10px rgba(15,23,42,.04)}
+  .m-order-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .m-order-name{font-size:1rem;font-weight:900;color:var(--text)}
+  .m-order-ref{font-size:.68rem;color:var(--text-muted);font-weight:800}
+  .m-order-status{padding:4px 8px;border-radius:999px;font-size:.68rem;font-weight:900;background:#f1f5f9;color:#475569;white-space:nowrap}
+  .m-order-phone{font-size:.78rem;color:var(--brand);font-weight:800;margin-top:3px;direction:ltr;text-align:right}
+  .m-order-address{font-size:.77rem;color:var(--text-muted);line-height:1.7;margin-top:6px}
+  .m-order-products{font-size:.76rem;line-height:1.65;background:#f8fafc;border-radius:10px;padding:8px;margin-top:8px}
+  .m-order-money{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+  .m-order-money>div{border:1px solid var(--border);border-radius:10px;padding:8px}
+  .m-order-money span{display:block;font-size:.65rem;color:var(--text-muted);font-weight:700}
+  .m-order-money b{font-size:.95rem}
+  .m-courier-line{margin-top:8px;border-radius:9px;background:#eff6ff;color:#1d4ed8;padding:7px 8px;font-size:.72rem;font-weight:900}
+  .m-note-line{margin-top:6px;border-radius:9px;background:#fff7ed;color:#9a5b00;padding:7px 8px;font-size:.72rem;font-weight:800}
+  .m-order-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .m-order-actions button,.m-order-actions a{border:0;text-decoration:none;border-radius:10px;background:#f3f4f6;color:#28303d;min-height:39px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+  .m-order-actions .edit{background:#ede9fe;color:#5b34e6}.m-order-actions .courier{background:#fff3d9;color:#9a6400}
+  #azzams-mobile-nav{
+    display:grid!important;grid-template-columns:repeat(5,1fr);position:fixed;right:8px;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));
+    z-index:10005;background:rgba(17,19,24,.96);border:1px solid #2d323e;border-radius:18px;padding:6px;box-shadow:0 14px 35px rgba(0,0,0,.25);backdrop-filter:blur(12px)
+  }
+  .mnav-btn{border:0;background:transparent;color:#9ca3af;border-radius:12px;padding:6px 3px;min-height:51px;font-size:.62rem;font-weight:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative}
+  .mnav-btn .ico{font-size:1.25rem;line-height:1}.mnav-btn.active{background:#fff;color:#111318}.mnav-btn.add{background:var(--brand);color:#fff}
+  .mobile-notif-badge{position:absolute;top:2px;left:14px;background:#dc2626;color:#fff;min-width:18px;height:18px;padding:0 4px;border-radius:999px;font-size:.61rem;display:none;align-items:center;justify-content:center}
+  .settings-grid{grid-template-columns:1fr!important}
+  .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .stat-card{padding:12px!important}.stat-value{font-size:1.1rem!important}.stat-label{font-size:.7rem!important}
+}
+</style>
+<script id="azzams-admin-mobile-v13">
+(function(){
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const num=v=>Number(v)||0;
+  const money=v=>Math.round(num(v)).toLocaleString('ar-EG')+' ج';
+  function sectionButton(name){return [...document.querySelectorAll('#sidebar .nav-item')].find(b=>(b.getAttribute('onclick')||'').includes("'"+name+"'"))}
+  function go(name){
+    const b=sectionButton(name);
+    if(typeof showSection==='function')showSection(name,b||null);
+    document.querySelectorAll('.mnav-btn').forEach(x=>x.classList.toggle('active',x.dataset.section===name));
+    if(typeof closeSidebar==='function')closeSidebar();
+    if(name==='sales')setTimeout(renderMobileSalesCards,30);
+    if(name==='couriers'&&typeof renderCourierAdmin==='function')setTimeout(renderCourierAdmin,30);
+  }
+  window.mobileGo=go;
+
+  function mountNav(){
+    if(document.getElementById('azzams-mobile-nav'))return;
+    const nav=document.createElement('nav');nav.id='azzams-mobile-nav';
+    nav.innerHTML=
+      '<button class="mnav-btn active" data-section="dashboard" onclick="mobileGo(\'dashboard\')"><span class="ico">🏠</span><span>الرئيسية</span></button>'+
+      '<button class="mnav-btn" data-section="sales" onclick="mobileGo(\'sales\')"><span class="ico">🛒</span><span>الأوردرات</span></button>'+
+      '<button class="mnav-btn add" data-section="new-order" onclick="mobileGo(\'new-order\')"><span class="ico">＋</span><span>أوردر جديد</span></button>'+
+      '<button class="mnav-btn" data-section="couriers" onclick="mobileGo(\'couriers\')"><span class="ico">🛵</span><span>المندوبين</span></button>'+
+      '<button class="mnav-btn" onclick="openNotifModal()"><span class="ico">🔔</span><span>إشعارات</span><span id="mobile-notif-badge" class="mobile-notif-badge">0</span></button>';
+    document.body.appendChild(nav);
+  }
+
+  function mobileOrderProducts(s){
+    if(Array.isArray(s.items)&&s.items.length)return s.items.map(i=>esc(i.commName||i.name||'منتج')+' ×'+(num(i.qty)||1)).join('<br>');
+    return esc(s.name||'منتج')+' ×'+(num(s.qty)||1);
+  }
+  window.renderMobileSalesCards=function(){
+    const wrap=document.querySelector('#section-sales .data-table-wrap');if(!wrap)return;
+    let box=document.getElementById('mobile-sales-cards');
+    if(!box){box=document.createElement('div');box.id='mobile-sales-cards';wrap.appendChild(box)}
+    const search=(document.getElementById('sales-search-input')?.value||'').toLowerCase();
+    const status=document.getElementById('sales-status-filter')?.value||'';
+    const shipping=document.getElementById('sales-shipping-filter')?.value||'';
+    const active=['قيد التجهيز','متابعة','مع المندوب','استبدال'];
+    let rows=Object.entries(window.salesData||salesData||{}).filter(([k,s])=>{
+      if(!active.includes(s.status))return false;
+      const hay=((s.name||'')+' '+(s.customer||'')+' '+(s.phone||'')+' '+(s.address||'')).toLowerCase();
+      if(search&&!hay.includes(search))return false;
+      if(status&&s.status!==status)return false;
+      if(shipping){
+        const gov=(s.gov||'').trim(),cg=['القاهرة','الجيزة','اطراف القاهرة','اطراف الجيزة'].includes(gov);
+        if(shipping==='cairo_giza'&&!cg)return false;if(shipping==='govs'&&cg)return false;
+      }
+      return true;
+    }).reverse();
+    box.innerHTML=rows.map(([k,s])=>{
+      const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
+      const prepaid=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);
+      const due=Math.max(0,total-prepaid);
+      const courier=s.courierName?'<div class="m-courier-line">🛵 '+esc(s.courierName)+(s.courierPostponedUntil?' · ⏰ '+esc(s.courierPostponedUntil):'')+'</div>':'';
+      const note=s.courierNote?'<div class="m-note-line">📝 '+esc(s.courierNote)+'</div>':'';
+      return '<div class="m-order-card">'+
+        '<div class="m-order-top"><div><div class="m-order-name">'+esc(s.customer||'—')+'</div><div class="m-order-ref">#'+esc(k.slice(-6))+'</div></div><span class="m-order-status">'+esc(s.status||'—')+'</span></div>'+
+        '<div class="m-order-phone">'+esc(typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'')+'</div>'+
+        '<div class="m-order-address">📍 '+esc([s.gov,s.area,s.address].filter(Boolean).join(' — ')||'العنوان غير مسجل')+'</div>'+
+        '<div class="m-order-products">'+mobileOrderProducts(s)+'</div>'+
+        '<div class="m-order-money"><div><span>إجمالي الأوردر</span><b>'+money(total)+'</b></div><div><span>المطلوب تحصيله</span><b>'+money(due)+'</b></div></div>'+
+        courier+note+
+        '<div class="m-order-actions">'+
+          '<button class="edit" onclick="editSale(\''+k+'\')" title="تعديل">✏️</button>'+
+          '<button class="courier" onclick="assignCourierToOne(\''+k+'\')" title="مندوب">🛵</button>'+
+          '<a href="tel:'+esc(typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'')+'" title="اتصال">📞</a>'+
+          '<button onclick="sendWhatsApp(\''+k+'\')" title="واتساب">💬</button>'+
+        '</div></div>';
+    }).join('')||'<div style="padding:32px;text-align:center;color:var(--text-muted)">مفيش أوردرات مطابقة</div>';
+  };
+
+  function wrapSales(){
+    const old=window.updateSalesUI;if(!old||old.__mobileCards)return;
+    const fn=function(){const r=old.apply(this,arguments);try{renderMobileSalesCards()}catch(e){console.warn(e)}return r};
+    fn.__mobileCards=true;window.updateSalesUI=fn;
+  }
+
+  function nativeNotify(title,body){
+    try{if(window.AndroidBridge&&typeof AndroidBridge.notifyEvent==='function')AndroidBridge.notifyEvent(String(title||'Azzams'),String(body||''))}catch(e){}
+  }
+  function eventText(e){
+    const sale=(window.salesData||salesData||{})[e.orderId]||{};
+    const customer=sale.customer||('#'+String(e.orderId||'').slice(-6));
+    const courier=e.courierName||sale.courierName||'المندوب';
+    if(e.type==='postponed')return {title:'⏰ تأجيل أوردر',body:courier+' أجّل أوردر '+customer+' إلى '+(e.until||'موعد جديد')+(e.note?' — '+e.note:'')};
+    if(e.type==='note')return {title:'📝 ملاحظة من المندوب',body:courier+' — '+customer+': '+(e.note||'أضاف ملاحظة جديدة')};
+    if(e.type==='result'){
+      if(e.result==='delivered')return {title:'✅ تم تسليم أوردر',body:courier+' سلّم أوردر '+customer+' — هتستلم منه '+money(e.storeDue||0)};
+      if(e.result==='cancelled')return {title:'❌ أوردر ملغي',body:courier+' ألغى أوردر '+customer+(e.reason?' — '+e.reason:'')};
+      return {title:'↩️ أوردر مرتجع',body:courier+' رجّع أوردر '+customer+(e.reason?' — '+e.reason:'')};
+    }
+    return {title:'🔔 تحديث من المندوب',body:courier+' حدّث أوردر '+customer};
+  }
+  function addNotif(title,body,ts){
+    const msg=title+' — '+body;
+    activeNotifications.unshift({text:msg,time:new Date(ts||Date.now()).toLocaleTimeString('ar-EG')});
+    if(activeNotifications.length>80)activeNotifications.length=80;
+    const badge=document.getElementById('notif-count-badge');
+    if(badge){badge.innerText=activeNotifications.length;badge.style.display='inline'}
+    const mb=document.getElementById('mobile-notif-badge');
+    if(mb){mb.innerText=Math.min(99,activeNotifications.length);mb.style.display='flex'}
+    const popup=document.getElementById('notif-popup');
+    if(popup){popup.innerHTML='🔔 '+esc(body);popup.style.display='block';setTimeout(()=>popup.style.display='none',5000)}
+    nativeNotify(title,body);
+  }
+  function listenCourierEvents(){
+    let last=Number(localStorage.getItem('azzamsCourierNotifLastTs')||0);
+    db.ref('courier_events').orderByChild('timestamp').limitToLast(60).on('value',snap=>{
+      const rows=[];snap.forEach(ch=>{const v=ch.val()||{};v._key=ch.key;rows.push(v)});
+      rows.sort((a,b)=>num(a.timestamp)-num(b.timestamp));
+      if(!last){
+        last=rows.reduce((m,e)=>Math.max(m,num(e.timestamp)),0);
+        if(last)localStorage.setItem('azzamsCourierNotifLastTs',String(last));
+        return;
+      }
+      const fresh=rows.filter(e=>num(e.timestamp)>last);
+      fresh.forEach(e=>{const t=eventText(e);addNotif(t.title,t.body,e.timestamp);last=Math.max(last,num(e.timestamp))});
+      if(fresh.length)localStorage.setItem('azzamsCourierNotifLastTs',String(last));
+    });
+  }
+
+  const originalOpen=window.openNotifModal;
+  window.openNotifModal=function(){
+    const mb=document.getElementById('mobile-notif-badge');if(mb)mb.style.display='none';
+    if(typeof originalOpen==='function')return originalOpen.apply(this,arguments);
+  };
+
+  function boot(){
+    mountNav();wrapSales();setTimeout(renderMobileSalesCards,200);
+    try{listenCourierEvents()}catch(e){console.warn('courier events notifications',e)}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
 <style id="azzams-courier-admin-v1">
 .courier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:18px}
 .courier-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:15px;box-shadow:0 2px 10px rgba(15,23,42,.04)}
