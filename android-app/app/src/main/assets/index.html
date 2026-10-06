@@ -3203,7 +3203,7 @@ function populateAreaSelect(preserveValue) {
     let areaInput  = document.getElementById('sale-area');
     const keep = preserveValue !== undefined ? preserveValue : (areaInput.value || '');
     areaSelect.innerHTML = '<option value="">-- اختر المنطقة --</option>';
-    let areas = CITY_AREAS[cityName] || [];
+    let areas = [...new Set(CITY_AREAS[cityName] || [])];
     if (areas.length > 0) {
         areas.forEach(area => {
             areaSelect.innerHTML += `<option value="${area}">${area}</option>`;
@@ -3220,7 +3220,7 @@ function populateAreaSelect(preserveValue) {
 
 function filterAreaOptions(query) {
     let cityName = document.getElementById('sale-gov').value;
-    let allAreas = CITY_AREAS[cityName] || [];
+    let allAreas = [...new Set(CITY_AREAS[cityName] || [])];
     let areaSelect = document.getElementById('sale-area-select');
     let q = query.trim();
     let filtered = q ? allAreas.filter(a => a.includes(q)) : allAreas;
@@ -5704,7 +5704,7 @@ window.v68AddEditItem=function(){
 };
 function v68PopulateAreaSelect(preserve){
  const gov=document.getElementById('v68-gov')?.value||'',sel=document.getElementById('v68-area-select'),inp=document.getElementById('v68-area');if(!sel)return;
- const keep=preserve!==undefined?preserve:(inp?.value||'');const areas=CITY_AREAS[gov]||[];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+v68Esc(a)+'">'+v68Esc(a)+'</option>').join('');
+ const keep=preserve!==undefined?preserve:(inp?.value||'');const areas=[...new Set(CITY_AREAS[gov]||[])];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+v68Esc(a)+'">'+v68Esc(a)+'</option>').join('');
  const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));sel.value=hit||'';if(inp&&hit)inp.value=hit;else if(inp&&preserve!==undefined)inp.value=keep||'';
 }
 window.v68PopulateAreaSelect=v68PopulateAreaSelect;
