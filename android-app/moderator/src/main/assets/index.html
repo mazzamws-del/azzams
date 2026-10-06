@@ -170,8 +170,8 @@ function normLoc(v){return String(v||'').toLowerCase().replace(/[أإآ]/g,'ا')
 function knownArea(gov,area){const a=normLoc(area);if(!a||!CITY_AREAS[gov])return false;return CITY_AREAS[gov].some(x=>normLoc(x)===a)}
 function populateModeratorAreas(govId='gov',selectId='area-select',inputId='area',preserve){
  const g=$(govId)?.value||'',sel=$(selectId),inp=$(inputId);if(!sel)return;
- const keep=preserve!==undefined?preserve:(inp?.value||'');sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+((CITY_AREAS[g]||[]).map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join(''));
- const hit=(CITY_AREAS[g]||[]).find(a=>normLoc(a)===normLoc(keep));sel.value=hit||'';if(inp&&hit)inp.value=hit;
+ const keep=preserve!==undefined?preserve:(inp?.value||''),areas=[...new Set(CITY_AREAS[g]||[])];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
+ const hit=areas.find(a=>normLoc(a)===normLoc(keep));sel.value=hit||'';if(inp&&hit)inp.value=hit;
 }
 window.populateModeratorAreas=populateModeratorAreas;
 window.pickModeratorArea=function(v,inputId='area'){const inp=$(inputId);if(inp)inp.value=v||'';saveDraft()}
