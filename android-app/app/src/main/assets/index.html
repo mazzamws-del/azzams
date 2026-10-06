@@ -6220,7 +6220,7 @@ window.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.sale-cb').forEach(cb=>cb.checked=window.azzamsMobileSelected.has(cb.value));
     refreshMobileSelectionBar();
     const visibleDue=rows.reduce((sum,[,s])=>sum+dueOf(s),0);
-    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;
+    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;
 
     box.innerHTML=rows.map(([k,s])=>{
       const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
@@ -6233,7 +6233,7 @@ window.addEventListener('DOMContentLoaded',function(){
         missingActual(s)?'<span class="m16-chip warn">⚠️ ناقص اسم فعلي</span>':''
       ].join('')+labels.map(l=>'<span class="m16-chip label">'+esc(l)+'</span>').join('');
       const giftMessage=s.giftMessage?'<div class="m16-gift">💌 <b>رسالة الهدية</b><div>'+esc(s.giftMessage)+'</div></div>':'';
-      const adminNote=s.notes?'<div class="m16-note admin">🗒️ '+esc(s.notes)+'</div>':'';
+      const giftMessage=s.giftMessage?'<div class="m16-gift">💌 <b>رسالة الهدية</b><div>'+esc(s.giftMessage)+'</div></div>':'';const adminNote=s.notes?'<div class="m16-note admin">🗒️ '+esc(s.notes)+'</div>':'';
       const courierNote=s.courierNote?'<div class="m16-note courier">🛵 '+esc(s.courierNote)+'</div>':'';
       const ph=typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'';
       return '<article class="m16-card '+cardClass(s.status)+'">'+
@@ -6243,7 +6243,7 @@ window.addEventListener('DOMContentLoaded',function(){
         '<div class="m16-section"><div class="m16-section-title">المنتجات</div><div class="m16-products">'+productHTML(s)+'</div></div>'+
         '<div class="m16-meta">'+meta+'</div>'+
         '<div class="m16-money"><div><span>قيمة المنتجات</span><b>'+money(num(s.revenue)-num(s.discount))+'</b></div><div><span>مدفوع</span><b>'+money(prepaid)+'</b></div><div class="due"><span>تحصيل</span><b>'+money(due)+'</b></div></div>'+
-        giftMessage+adminNote+courierNote+
+        giftMessage+giftMessage+adminNote+courierNote+
         '<div class="m16-actions">'+
           '<button class="edit" onclick="editSale(\''+k+'\')">✏️ تعديل</button>'+
           '<button class="assign" onclick="assignCourierToOne(\''+k+'\')">🛵 مندوب</button>'+
