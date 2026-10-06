@@ -3195,13 +3195,13 @@ function updateShippingSubsidyHint() {
     }
 }
 
-function populateAreaSelect() {
+function populateAreaSelect(preserveValue) {
     let cityName = document.getElementById('sale-gov').value;
     let areaSelect = document.getElementById('sale-area-select');
     let areaSearch = document.getElementById('sale-area-search');
     let areaInput  = document.getElementById('sale-area');
+    const keep = preserveValue !== undefined ? preserveValue : (areaInput.value || '');
     areaSelect.innerHTML = '<option value="">-- اختر المنطقة --</option>';
-    areaInput.value = '';
     let areas = CITY_AREAS[cityName] || [];
     if (areas.length > 0) {
         areas.forEach(area => {
@@ -3210,6 +3210,7 @@ function populateAreaSelect() {
         areaSelect.style.display = 'block';
         areaSearch.style.display = 'block';
         areaSearch.value = '';
+        const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));if(hit){areaSelect.value=hit;areaInput.value=hit}else if(preserveValue!==undefined){areaInput.value=keep;}
     } else {
         areaSelect.style.display = 'none';
         areaSearch.style.display = 'none';
@@ -3466,6 +3467,8 @@ function addSale() {
         phone2: normalizePhoneStr(document.getElementById('sale-phone2').value.trim()),
         address: document.getElementById('sale-address').value || '',
         area: document.getElementById('sale-area').value || '',
+        areaNeedsReview: !shippingSheetKnownArea(govText, document.getElementById('sale-area').value || ''),
+        areaReviewReason: !(document.getElementById('sale-area').value || '').trim() ? 'missing' : (!shippingSheetKnownArea(govText, document.getElementById('sale-area').value || '') ? 'unmatched' : ''),
         gov: govText,
         shippingTier: (window.v68ShippingRule ? window.v68ShippingRule(govText).tier : ''),
         deposit: depositVal, prepaidAmount: depositVal, paymentMethod: document.getElementById('sale-payment-method')?.value || 'COD', shipping: customerShip,
@@ -4832,6 +4835,7 @@ function printConfirmationList(selector) {
 function exportShippingExcel(selector) {
     const checked = document.querySelectorAll(selector);
     if (!checked.length) return alert('برجاء تحديد أوردرات أولاً.');
+    const bad=[...checked].map(cb=>salesData[cb.value]).filter(x=>!x||!String(x.area||'').trim()||x.areaNeedsReview===true);if(bad.length&&!confirm('⚠️ في '+bad.length+' أوردر المنطقة ناقصة أو محتاجة مراجعة. تكمل التصدير برضه؟'))return;
     let data = [];
     checked.forEach(cb => {
         const s = salesData[cb.value];
@@ -4862,7 +4866,7 @@ function exportShippingExcel(selector) {
     let wb = XLSX.utils.book_new();
     let headerOrder = ['ConsigneeName','City','Area','Address','Phone_1','Phone_2','E-mail','OrderID','ClientID','ItemName','Quantity','ItemDescription','COD','Weight','Size','ServiceType','notes'];
     let ws = XLSX.utils.json_to_sheet(data, { header: headerOrder });
-    XLSX.utils.book_append_sheet(wb, ws, 'Shipping');
+    XLSX.utils.book_append_sheet(wb, ws, 'fourm');
     XLSX.writeFile(wb, `Shipping_${new Date().toISOString().split('T')[0]}.xlsx`);
     logAction(`تصدير شيت شحن لـ ${checked.length} أوردر`);
 }
@@ -4900,35 +4904,23 @@ function exportData() {
 /* ========================
    CITY → AREAS DATA
 ======================== */
-const CITY_AREAS = {
-  "القاهرة": ["الأزبكية","الأميرية","البساتين","التجمع الاول","الجمالية الحسين القاهرة","الخليفة","الدرب الأحمر","الرحاب","الزاوية الحمراء","الزمالك","الزيتون","السلام","السيدة زينب","الشرابية","العباسية","المرج","المطرية","المعادي","المقطم","المنيل","النزهة","الوايلي","بهتيم","جاردن سيتي","جسر السويس","حدائق القبة","دار السلام المعادي","شبرا الخيمة","شبرا مصر","شيراتون","طرة","عزبة النخل","عين شمس","مدينة نصر","مسطرد","مصر الجديدة","مصر القديمة","منشية ناصر","وسط البلد","يهتيم","احمد عصمت _عين شمس","عين شمس الشرقية - عين شمس","حلمية الزيتون - عين شمس","النعام - عين شمس","طلمبات الزيتون - عين شمس","زهراء عين شمس - عين شمس","متحف المطريه - عين شمس","ش ابراهيم عبد الرازق - عين شمس","منشيه التحرير - عين شمس","الجراج - جسر السويس","مزلقان عين شمس  - جسر السويس","ش الاربعين - جسر السويس","ش الخمسين - جسر السويس","قباء - جسر السويس","الحرافين - جسر السويس","السوير جيت - جسر السويس","ولي العهد - حدايق القبه","ترعه الجبل - حدايق القبه","ترعه القبه - حدايق القبه","ش التحربر - حدايق القبه","السواح - حدايق القبه","منشيه الصدر - حدايق القبه","ابن سندار - حدايق القبه","تومان باي  - حدايق القبه","ش الخليج - حدايق القبه","مبدان المطريه - المطريه","ش الكبلات - المطريه","ش الحريه - المطريه","ش بورسعيد - المطريه","ش عمر المختار - المطريه","الترول - المطريه","ش المطاراوي - المطريه","سليم الاول - الزيتون","ش الفنان - الزيتون","ش المسيره - الزيتون","ش الاسبه - الزيتون","ش الليل - الزيتون","روكسي - مصر الجديده","عمارات العبور - مصر الجديده","ارض الجولف - مصر الجديده","الماظه - مصر الجديده","ميدان ترنيف - مصر الجديده","الحجاز - مصر الجديده","مبدان الاسماعليه - مصر الجديده","الكوربة - هليوبوليس","هليوبوليس - كلية البنات","هليوبوليس - ميدان المحكمة","هليوبوليس - ميدان سفير","هليوبوليس - الميريلاند","هليوبوليس - الميرغني","هليوبوليس - العروبة","هليوبوليس - سانت فاطيما","النزهه - الهايكستب","النزهه - النزهة","شيراتون - مساكن شيراتون","شيراتون-مطار القاهره","ش الطيران - مدينه نصر C1","يوسف عباس - مدينه نصر C1","امتداد رامسيس - مدينه نصر C1","مقولين العرب - مدينه نصر C1","الحي السادس - مدينه نصر C1","الحي السابع - مدينه نصر C1","حي السفارات - مدينه نصر C1","المنظقه الحره - مدينه نصر C1","سيتي استارز - مدينه نصر C2","عباس العقاد - مدينه نصر C2","مكرم عبيد - مدينه نصر C2","سراج مول - مدينه نصر C2","احمد فخري  - مدينه نصر C2","مساكن الشروق - مدينه مصر C3","ش الطاقه - مدينه مصر C3","النادي الاهلي - مدينه مصر C3","الوفاء والامل - مدينه مصر C3","المنظقه التاسعه - مدينه مصر C3","المنظقه الثامنه - مدينه مصر C3","صقر قريش - زهراء مدينه نصر C1","عماير الظباط 4 الف - زهراء مدينه نصر C1","الكيلو 4 ونص - زهراء مدينه نصر C1","الحي العاشر - زهراء مدينه نصر C1","السويسري - زهراء مدينه نصر C1","حي الواحه - زهراء مدينه نصر C1","التبه - زهراء مدينه نصر C1","عماير الظباط 3 الف - زهراء مدينه نصر C2","عماير حسني مبارك - زهراء مدينه نصر C2","تاج سلطان - زهراء مدينه نصر C2","جاردنيا - زهراء مدينه نصر C2","الحي الاول - العبور C1","الحي الخامس - العبور C1","الحي السادس - العبور C1","الحي التاسع - العبور C1","الترفيه - العبور C1","سوق العبور - العبور C1","الحي الثالث - العبور C2","الحي الرابع - العبور C2","الحي السابع - العبور C2","ش النزهه - مدينه نصر C2","النهضه - السلام","شركه الادويه - السلام","مساكن العبد - السلام"],
-  "الجيزة": ["ارض اللواء","الدقي","العجوزة","العمرانية","المهندسين","الهرم","الوراق","امبابة","بولاق","بولاق الدكرور","فيصل","الصفا و المروة - فيصل","كعبيش - فيصل","حمد ياسين - فيصل","المريوطية - فيصل","زهراء المعادي","السيدة عائشة","حدائق المعادي","الهضبة الوسطي","العتبة","جزيرة الدهب","العشرين فيصل","الطالبية فيصل","صفط اللبن","نادي الصيد - الدقي"],
-  "اطراف القاهرة": ["15 مايو","التبين","التجمع الثالث","التجمع الخامس","الخصوص","الشروق","العاصمة الادارية","العبور","القاهرة الجديدة","القطامية","بدر القاهرة","حلوان","مدينة المستقبل","مدينتي","الشروق C2","الشروق C3","مديني C1","بدر C1","الرحاب-مجموعة عمارات الرحاب","الرحاب- دار مصرالقرنفل","الرحاب -كمبوند جايد","الرحاب-كمبوند القرنفل هايتس","إسكان الشباب - العبور","إسكان المستقبل - العبور","الإسكان العائلي - العبور","الإسكان الوطني - العبور","المنطقة الصناعية الأولى - العبيور","جمعية أحمد عرابي - العبور","كيريازي - العبور","مدينة الجولف -العبور","منطقة الترفيه - العبور","مؤسسة الزكاة - المرج","بركة الحج - المرج","كفر ابو عصير - المرج","كفر الباشا - المرج","عزبة النخل - المرج","كفر الشرفا -المرج","عزبة الجزيرة - المرج","البداية - المرج","عزبة علام - المرج","عزبة الطويلة - المرج","محمد نجيب - المرج","عين شمس الغربيه - المرج","الشجره - الخصوص","المطافي - الخصوص","قصر نعمه - الخصوص","ش الصرف الصحي - الخصوص","جمبع الانفاق - الخصوص","جولد سيتي - العبور C1","المصانع - العبور C1","الحي الثاني  - العبور C2","الحي الثامن  - العبور C2","الشباب - العبور C2","العبور الجديده - العبور C2","جمعيه عرابي - المستقبل","المستقبل","جامعه مصر الدوليه - المستقبل","طريق مصر الاسماعليه  - المستقبل","تقسيم الدواجن - السلام","ش الضغط - السلام","محطة الونش - السلام","اسبيكوا - السلام","مساكن اطلس - السلام","صف الظباط - السلام","التجمع الخامس - شركات (4 قطاعات)","التجمع الخامس - مجمع البنوك","التجمع الخامس - حنوب الاكاديميه","التجمع الخامس - شرق الاكاديميه","التجمع الخامس-  كمبوند النخيل","التجمع الخامس - كمبوند قطاميه ريسيدنس","التجمع الخامس - كمبوند سون ليك","التجمع الخامس - كمبوند ماريتا سيتي","كمبوند عربية - التجمع الخامس C2","كمبوند ريتاج  - التجمع الخامس C2","كمبوند الاصيل - التجمع الخامس C2","كمبوند صن ريز - التجمع الخامس C2","كمبوند الجزيرة جرين بارك - التجمع الخامس C2","كمبوند اوركيدا  - التجمع الخامس C2","كمبوند جاردين فيو  - التجمع الخامس C2","كمبوند فاونتن بلو -التجمع الخامس C2","كمبوند قطامية ديونز -التجمع الخامس C2","كمبوند سيفورا هايتس -التجمع الخامس C2","كمبوند هيلز- التجمع الخامس C2","كمبوند قطامية جاردين - التجمع الخامس C2","كمبوند لاروا -التجمع الخامس C2","كمبوند VGK  - التجمع الخامس C3","اللوتس الجنوبية -التجمع الخامس C3","كمبوند لايت سيتي -التجمع الخامس C3","كمبوند امورادا -التجمع الخامس C3","كمبوند تمر حنة -التجمع الخامس C3","التجمع الثالث- كمبوند استون بارك","التجمع الثالث - كمبوند استون ريسيدنس","التجمع الثالث - امتداد غرب الجولف","التجمع الثالث- المحليات كاملة","التجمع الثالث - القطامية","التجمع الثالث - جاردينيا هايتس","التجمع الثالث -منطقة الالف مصنع","الحي الاول -التجمع الخامس C4","الحي الثاني  -التجمع الخامس C4","الحي الثالث -التجمع الخامس C4","الحي الرابع- التجمع الخامس C4","الحي الخامس -التجمع الخامس C4","غرب اربيلا -التجمع الخامس C4","مبوند غرب الجولف -التجمع الخامس C4","الشويفات- التجمع الخامس C4","كمبوند الدبلوماسيين- التجمع الخامس C4","كمبوند قطامية هليتس -التجمع الخامس C4","التجمع الثالث-النرجس","التجمع الاول -البنفسج","التجمع الاول - الياسمين","التجمع الاول -المجاورات","التجمع الاول -كمبوند الميراج","التجمع الاول - كمبوند الامن العام","التجمع الاول  - كمبوند برايت سيتي","الشروق C1","نادي الصيد - القطامية"],
-  "اطراف الجيزة": ["طريق الواحات","6 اكتوبر","ابو النمرس","ابو رواش","البدرشين","الحوامدية","الشيخ زايد الجيزة","المنيب","أوسيم","حدائق الاهرام","حى الجيزة","كرداسة","جزيرة الدهب","ابني بيتك الرابعه - ح اكتوبر","مشروع 41 - 6 اكتوبر","مشروع 645 - اكتوبر","800 فدان - اكتوبر","دجلة بالمز","ليلة القدر ٦ اكتوبر","كمبوند ريحانة - ح اكتوبر","الحي السابع الشيخ زايد","ساقية مكي","ميدان الجيزة","البحر الاعظم","هرم سيتي - ح اكتوبر","سوق الجملة - حدائق اكتوبر - ح اكتوبر","كمبوند ريوس - ح اكتوبر","مدينة الانتاج الاعلامي - ح اكتوبر","دجلة جاردنز - ح اكتوبر","الحي الاسباني - ح كتوبر","مساكن 1185 - ح اكتوبر","كمبوند حورس - 6 اكتوبر","الحي الايطالي - ح اكتوبر","التوسعات الشمالية  اكتوبر","السياحية أ - ح اكتوبر","مساكن 247 - ح اكتوبر","مول مصر- ح اكتوبر","مول العرب 6 اكتوبر","منيل شيحة","ابراج سما","القرية الذكية - زايد","بالم هيلز- زايد","بيفرلي هيلز- زايد","بالم فيو - 6 اكتوبر","الحي المتميز 6 اكتوبر","مساكن دهشور 6 اكتوبر","دريم لاند","مدينة الفردوس","صنية الواحات","حي الاشجار اكتوبر","ابني بيتك السادسة","ابني بيتك السابعه","ابني بيتك الخامسة ح اكتوبر","السياحية الرابعة - 6 اكتوبر","السياحية السادسة - 6 اكتوبر","مينا جاردن سيتي - 6 اكتوبر","كمبوند جنة - 6 اكتوبر","كمبوند المروج - 6 اكتوبر","رويال هيلز - 6 اكتوبر","ميدان جهينة - 6 اكتوبر","جامعة مصر - 6 اكتوبر","رويال بلازا - 6 اكتوبر","نادي الصيد - 6 اكتوبر","الحي الاول - 6 اكتوبر","الحي اثاني - 6 اكتوبر","الحي الثالث - 6 اكتوبر","الحي الرابع - 6 اكتوبر","الحي الخامس - 6 اكتوبر","الحصري - 6 اكتوبر","الحي السادس - 6 اكتوبر","الحي السابع - 6 اكتوبر","الحي الثامن - 6 اكتوبر","الحي التاسع - 6 اكتوبر","الحي العاشر - 6 اكتوبر","الحي 11 - اكتوبر","الحي 12 -6 اكتوبر","حي البشاير - 6 اكتوبر","جراند هايتس - 6 اكتوبر","كمبوند الاشراقة","كمبوند واحة النصر - 6 اكتوبر","كمبوند فاميلي لاند - 6 اكتوبر","كمبوند المعمورة - 6 اكتوبر","كمبوند ديار التعمير - 6 اكتوبر","المستثمر الصغير - 6 اكتوبر","زهراء اكتوبر الجديدة  - 6 اكتوبر","جنوب الاحياء - 6 اكتوبر","المنطقة الصناعية - 6 اكتوبر"],
-  "الاسكندرية": ["6 اكتوبر العجمي","ابو قير","ابيس","ابيس 2","ابيس 8","الابراهيمية - الاسكندرية","الازاريطة","البيطاش","الجمرك","الحضرة","الدخيلة","الراس السوداء","الرمل","الساعة","السلسلة","السيوف","الشاطبي","العامرية","العجمي","العصافرة","العطارين","العماروة","العوايد","الفلكي","القباري","اللبان","المعمورة","المكس","المنتزة","المندرة","المنشية","الهانوفيل","الورديان","باب شرق","باكوس","بحري","برج العرب","بوكلي","جاناكليس","جليم","حجر النواتية","خورشيد","راس التين","رشدي","زوايدة","زيزينيا","سابا باشا","سان استيفانو","سبورتينج","سكينة","سموحة","سيدي بشر","سيدي جابر","شارع 45","عزبة سعد","غيط العنب","فلمنج","ڤيكتوريا","قرية العزة","قرية النهضة","قرية الوفاء والامل","قرية بغداد","قرية بنجر السكر","قرية بهيج","كامب شيرار","كرموز","كفر عبدة","كليوباترا","كوم الدكة","كوم الشقافة","كينج ماريوت","لوران","محرم بك","محطة الرمل","مرغم","ميامي","مينا البصل","طوسون","المعمورة الشاطي","الطابية خورشيد اسكندرية"],
-  "القليوبية": ["ابو زعبل","اجهور الكبري قلوبية بنها","الجبل الاصفر","الخانكة","الصغري قليوبية بنها","الصفين القليوبية بنها","القلج","القناطر الخيرية","المنشية قليوبية بنها","باسوس","بنها","سندبيس","سندوين","سنهرة","شبين القناطر","طنط الجزيرة","طوخ","قليوب","كفر ابو جمعة","كفر رجب","كفر شكر","مركز قها","منشية القناطر","ميت حلفا","ميت كنافة","ميت نما","وردان امبابة"],
-  "الاسماعيلية": ["ابوصوير","الاسماعيلية","التل الكبير","القصاصين","القنطرة شرق","القنطرة غرب","فايد"],
-  "الاقصر": ["مدينة الاقصر","مدينة الاقصر الجديدة","مدينة طيبة الجديدة","مركز ارمنت","مركز اسنا","مركز البياضية","مركز الزينية","مركز الطود","مركز القرنة"],
-  "البحر_الاحمر": ["الجونة","الغردقة","القصير","راس غارب","سفاجا","سهل حشيش","شلاتين","مرسي علم","مكادي"],
-  "البحيرة": ["ابو المطامير","ابو حمص","ادكو","الدلنجات","الرحمانية","المحمودية","النوبارية الجديدة","ايتاي البارود","حوش عيسي","دمنهور","رشيد","شبراخيت","كفر الدوار","كوم حمادة","مدينة بدر البحيرة","وادي النطرون"],
-  "الدقهلية": ["اجا","الجمالية الدقهلية","السنبلاوين","الكردي","المطرية - الدقهلية","المنزلة","المنصورة","بلقاس","بني عبيد","تمي الامديد","جمصة","دكرنس","شربين","طلخا","منية النصر","ميت سلسيل","ميت غمر","نبروة"],
-  "السويس": ["حي الاربعين","حي الجناين","حي السويس","حي عتاقة","حي فيصل"],
-  "الشرقية": ["ابو كبير","ابو حماد","الابراهيمية - الشرقية","الحسينية","الزقازيق","الصالحية","العاشر من رمضان","القرين","القنايات","اولاد صقر","بلبيس","ديرب نجم","فاقوس","مشتول السوق","منيا القمح","ههيا"],
-  "الغربية": ["السنطة","المحلة الكبري","بسيون","زفتي","سمنود","طنطا","قطور","كفر الزيات"],
-  "الفيوم": ["ابشواي","اطسا","الفيوم","سنورس","طامية","يوسف الصديق"],
-  "المنوفية": ["السادات","الباجور","الشهداء","أشمون","بركة السبع","تلا","سرس الليان","شبين الكوم","قويسنا","منوف"],
-  "المنيا": ["ابو قرقاص","العدوة","المنيا","المنيا الجديدة","بني مزار","دير مواس","سمالوط","مطاي","مغاغة","ملوي"],
-  "الوادي_الجديد": ["الداخلة","الخارجة","الفرافرة","مركز باريس"],
-  "اسوان": ["اسوان","ابو سمبل","كوم امبو","اسنا","ادفو","نصر النوبة","دراو"],
-  "اسيوط": ["ابنوب","ابو تيج","اسيوط","اسيوط الجديدة","البداري","الغنايم","الفتح","القوصية","ديروط","ساحل سليم","صدفا","منفلوط"],
-  "بني_سويف": ["الفشن","الواسطي","اهناسيا","ببا","بني سويف","بني سويف الجديدة","سمسطا","ناصر(الشناوية)"],
-  "بورسعيد": ["حي الشرق","حي الجنوب","حي بورفؤاد","حي الضواحي","حي المناخ","حي الزهور","حي العرب"],
-  "دمياط": ["الروضة","الزرقا","السرو","جمصة","دمياط الجديدة","راس البر","عزبة البرج","فارسكور","كفر البطيخ","كفر سعد","ميت ابوغالب"],
-  "سوهاج": ["اخميم","البلينا","المراغة","المنشاة","جرجا","جهينة سوهاج","دار السلام سوهاج","ساقلتة","سوهاج","طما","طهطا"],
-  "قنا": ["ابو تشت","ارمنت","الوقف","دشنا","فرشوط","قفط","قنا","قوص","نجع حمادي","نقادة"],
-  "كفر_الشيخ": ["البرلـــس","الحامـول","الرياض","بيـــــلا","دســــوق","سيدي سالم","فـــــــــوه","قليـــــــن","كفر الشيخ","مطوبس"],
-  "مطروح": ["الحمام","الساحل الشمالي","السلوم","الضبعة","العلمين","النجيلة","سيدي براني","سيوة","مرسي مطروح"]
-};
+const CITY_AREAS = {"القاهرة":["الأميرية","البساتين","التجمع الاول","الجمالية الحسين القاهرة","الخليفة","الدرب الأحمر","الرحاب","الزاوية الحمراء","الزمالك","الزيتون","السلام","السيدة زينب","الشرابية","العباسية","ؤ","المطرية","المعادي","المقطم","المنيل","الوايلي","بهتيم","جاردن سيتي","جسر السويس","حدائق القبة","دار السلام المعادي","شبرا الخيمة","شبرا مصر","شيراتون","طرة","عزبة النخل","عين شمس","مدينة نصر","مسطرد","مصر الجديدة","مصر القديمة","وسط البلد","يهتيم"],"الجيزة":["ارض اللواء","الدقي","العجوزة","العمرانية","المهندسين","الهرم","الوراق","امبابة","بولاق","بولاق الدكرور","فيصل","السيدة عائشة","الهضبة الوسطي","العتبة","جزيرة الدهب","صفط اللبن"],"اطراف القاهرة":["15 مايو","التبين","التجمع الثالث","التجمع الخامس","الخصوص","الشروق","العاصمة الادارية","العبور","القطامية","بدر القاهرة","حلوان","مدينة المستقبل","مدينتي"],"اطراف الجيزة":["طريق الواحات","6 اكتوبر","ابو النمرس","ابو رواش","البدرشين","الحوامدية","الشيخ زايد الجيزة","المنيب","أوسيم","حدائق الاهرام","كرداسة","جزيرة الدهب","دجلة بالمز","ساقية مكي","ميدان الجيزة","البحر الاعظم","مول العرب 6 اكتوبر","القرية الذكية - زايد","الحي المتميز 6 اكتوبر","مساكن دهشور 6 اكتوبر","دريم لاند","مدينة الفردوس"],"الاسكندرية":["6 اكتوبر العجمي","ابو قير","ابيس","ابيس 2","ابيس 8","الابراهيمية - الاسكندرية","الازاريطة","البيطاش","الجمرك","الحضرة","الدخيلة","الراس السوداء","الرمل","الساعة","السلسلة","السيوف","الشاطبي","العامرية","العجمي","العصافرة","العطارين","العماروة","العوايد","الفلكي","القباري","اللبان","المعمورة","المكس","المنتزة","المندرة","المنشية","الهانوفيل","الورديان","باب شرق","باكوس","بحري","برج العرب","بوكلي","جاناكليس","جليم","حجر النواتية","خورشيد","راس التين","رشدي","زوايدة","زيزينيا","سابا باشا","سان استيفانو","سبورتينج","سكينة","سموحة","سيدي بشر","سيدي جابر","شارع 45","عزبة سعد","غيط العنب","فلمنج","ڤيكتوريا","قرية العزة","قرية النهضة","قرية الوفاء والامل","قرية بغداد","قرية بنجر السكر","قرية بهيج","كامب شيرار","كرموز","كفر عبدة","كليوباترا","كوم الدكة","كوم الشقافة","كينج ماريوت","لوران","محرم بك","محطة الرمل","مرغم","ميامي","مينا البصل","طوسون","المعمورة الشاطي","الطابية خورشيد اسكندرية"],"القليوبية":["ابو زعبل","الجبل الاصفر","الخانكة","القلج","القناطر الخيرية","باسوس","بنها","شبين القناطر","طنط الجزيرة","طوخ","قليوب البلد","كفر شكر","مركز قها","منشية القناطر","ميت حلفا","ميت نما"],"الاسماعيلية":["ابوصوير","الاسماعيلية","التل الكبير","القصاصين","القنطرة شرق","القنطرة غرب","فايد"],"الاقصر":["مدينة الاقصر","مدينة الاقصر الجديدة","مدينة طيبة الجديدة","مركز ارمنت","مركز اسنا","مركز البياضية","مركز الزينية","مركز الطود","مركز القرنة"],"البحر_الاحمر":["الجونة","الغردقة","القصير","راس غارب","سفاجا","سهل حشيش","شلاتين","مرسي علم","مكادي"],"البحيرة":["ابو المطامير","ابو حمص","ادكو","الدلنجات","الرحمانية","المحمودية","النوبارية الجديدة","ايتاي البارود","حوش عيسي","دمنهور","رشيد","شبراخيت","كفر الدوار","كوم حمادة","مدينة بدر البحيرة","وادي النطرون"],"الدقهلية":["اجا","الجمالية الدقهلية","السنبلاوين","الكردي","المطرية - الدقهلية","المنزلة","المنصورة","بلقاس","بني عبيد","تمي الامديد","جمصة","دكرنس","شربين","طلخا","منية النصر","ميت سلسيل","ميت غمر","نبروة"],"السويس":["حي الاربعين","حي الجناين","حي السويس","حي عتاقة","حي فيصل"],"الشرقية":["ابو كبير","ابو حماد","الابراهيمية - الشرقية","الحسينية","الزقازيق","الصالحية","العاشر من رمضان","القرين","القنايات","اولاد صقر","بلبيس","ديرب نجم","فاقوس","مشتول السوق","منيا القمح","ههيا"],"الغربية":["السنطة","المحلة الكبري","بسيون","زفتي","سمنود","طنطا","قطور","كفر الزيات"],"الفيوم":["ابشواي","اطسا","الفيوم","سنورس","طامية","يوسف الصديق"],"المنوفية":["السادات","الباجور","الشهداء","أشمون","بركة السبع","تلا","سرس الليان","شبين الكوم","قويسنا","منوف"],"المنيا":["ابو قرقاص","العدوة","المنيا","المنيا الجديدة","بني مزار","دير مواس","سمالوط","مطاي","مغاغة","ملوي"],"الوادي_الجديد":["الداخلة","الخارجة","الفرافرة","مركز باريس"],"اسوان":["دراو","ادفو","كوم امبو","ابو سمبل","البصيلية","الرديسية","السباعية","كلابشة","نصر النوبة"],"اسيوط":["ابنوب","ابو تيج","اسيوط","اسيوط الجديدة","البداري","الغنايم","الفتح","القوصية","ديروط","ساحل سليم","صدفا","منفلوط"],"بني_سويف":["الفشن","الواسطي","اهناسيا","ببا","بني سويف","بني سويف الجديدة","سمسطا","ناصر(الشناوية)","اطفيح","الصف","العياط"],"بورسعيد":["حي الشرق","حي الجنوب","حي بورفؤاد","حي الضواحي","حي المناخ","حي الزهور","حي العرب"],"دمياط":["الروضة","الزرقا","السرو","جمصة","دمياط الجديدة","راس البر","عزبة البرج","فارسكور","كفر البطيخ","كفر سعد","ميت ابوغالب"],"سوهاج":["اخميم","البلينا","المراغة","المنشاة","جرجا","جهينة سوهاج","دار السلام سوهاج","ساقلتة","سوهاج","طما","طهطا"],"قنا":["ابو تشت","ارمنت","الوقف","دشنا","فرشوط","قفط","قنا","قوص","نجع حمادي","نقادة"],"كفر_الشيخ":["البرلـــس","الحامـول","الرياض","بيـــــلا","دســــوق","سيدي سالم","فوه","قلين","كفر الشيخ","مطوبس"],"مطروح":["الحمام","الساحل الشمالي","السلوم","الضبعة","العلمين","النجيلة","سيدي براني","سيوة","مرسي مطروح"]};
+
+function shippingSheetNorm(v){return String(v||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[_\-–—/،,:؛]+/g,' ').replace(/[ًٌٍَُِّْـ]/g,'').replace(/\s+/g,' ').trim()}
+function shippingSheetKnownArea(gov,area){const a=shippingSheetNorm(area);if(!a||!CITY_AREAS[gov])return false;return CITY_AREAS[gov].some(x=>shippingSheetNorm(x)===a)}
+function shippingSheetResolveLocation(text,preferredGov){
+ const nt=shippingSheetNorm(text), cities=Object.keys(CITY_AREAS);
+ const aliases={'اسكندريه':'الاسكندرية','الإسكندرية':'الاسكندرية','القليوبيه':'القليوبية','اسماعيليه':'الاسماعيلية','الأقصر':'الاقصر','أسوان':'اسوان','أسيوط':'اسيوط','البحر الاحمر':'البحر_الاحمر','بني سويف':'بني_سويف','الوادي الجديد':'الوادي_الجديد','كفر الشيخ':'كفر_الشيخ','أطراف القاهرة':'اطراف القاهرة','أطراف الجيزة':'اطراف الجيزة'};
+ let gov=preferredGov||'';
+ if(!gov){for(const g of cities){if(nt.includes(shippingSheetNorm(g))){gov=g;break}}}
+ if(!gov){for(const [a,g] of Object.entries(aliases)){if(nt.includes(shippingSheetNorm(a))){gov=g;break}}}
+ const pool=gov?[gov]:cities;let matches=[];
+ pool.forEach(g=>(CITY_AREAS[g]||[]).forEach(a=>{const n=shippingSheetNorm(a);if(n.length>=3&&nt.includes(n))matches.push({gov:g,area:a,len:n.length})}));
+ matches.sort((a,b)=>b.len-a.len);
+ if(matches.length){const best=matches[0],same=matches.filter(x=>x.len===best.len&&shippingSheetNorm(x.area)===shippingSheetNorm(best.area));if(gov||new Set(same.map(x=>x.gov)).size===1)return {city:gov||best.gov,area:best.area,matched:true}}
+ return {city:gov,area:'',matched:false};
+}
+
 </script>
 
 <script id="azzams-v6-core">
@@ -5469,12 +5461,12 @@ function smartFillOrder(){
   const phone2=normalizePhoneStr((lp2.match(/(?:\+?20|0020|0)?1[0125]\d{8}/)||[])[0]||phones.find(p=>p!==phone)||'');
   let name=v64SanitizeName(v64ExtractField(text,nameAliases) || v62GuessName(text,phone));
   let address=v64SanitizeAddress(v64ExtractField(text,addressAliases) || v62GuessAddress(text,phone,name));
-  const city=v62GuessCity(address+'\n'+text); const area=v62GuessArea(address+'\n'+text,city);
+  const shipLoc=shippingSheetResolveLocation(address+'\n'+text,'');const city=shipLoc.city||v62GuessCity(address+'\n'+text); const area=shipLoc.area||v62GuessArea(address+'\n'+text,city);
   if(phone)v62SetInput('sale-phone',phone); if(phone2)v62SetInput('sale-phone2',phone2); if(name)v62SetInput('sale-customer',name); if(address)v62SetInput('sale-address',address);
-  if(city){const gov=document.getElementById('sale-gov');if(gov){gov.value=city;if(typeof applyShippingZone==='function')applyShippingZone();if(typeof populateAreaSelect==='function')populateAreaSelect();}}
+  if(city){const gov=document.getElementById('sale-gov');if(gov){gov.value=city;if(typeof applyShippingZone==='function')applyShippingZone();if(typeof populateAreaSelect==='function')populateAreaSelect(area||'');}}
   if(area){v62SetInput('sale-area',area);const aSel=document.getElementById('sale-area-select');if(aSel){const opt=[...aSel.options].find(o=>v62NormalizeArabic(o.value)===v62NormalizeArabic(area));if(opt)aSel.value=opt.value;}}
   if(phone){normalizeEgyptPhone(document.getElementById('sale-phone'));if(typeof checkDuplicatePhone==='function')checkDuplicatePhone();}
-  const warning=!name?'الاسم غير واضح — راجعه يدويًا':(!phone?'رقم الموبايل غير واضح — راجعه يدويًا':(!address?'العنوان غير واضح — راجعه يدويًا':''));
+  const warning=!name?'الاسم غير واضح — راجعه يدويًا':(!phone?'رقم الموبايل غير واضح — راجعه يدويًا':(!address?'العنوان غير واضح — راجعه يدويًا':(!area?'⚠️ المنطقة مش واضحة — الأوردر هيتعلم للمراجعة في الإدارة':'')));
   v63SmartPreview({name,phone,phone2,city,area,address,warning});
   const found=[name&&'الاسم',phone&&'الموبايل',phone2&&'رقم إضافي',address&&'العنوان',city&&'المحافظة',area&&'المنطقة'].filter(Boolean);
   const res=document.getElementById('smart-paste-result');if(res)res.textContent=found.length?'تم الملء: '+found.join(' • '):'مش قادر أقرأ الرسالة — راجع الصيغة.';
@@ -5671,8 +5663,8 @@ function v68EnsureModal(){
  const div=document.createElement('div');div.id='v68-edit-overlay';div.className='v68-edit-overlay';
  div.innerHTML=`<div class="v68-edit-box" role="dialog" aria-modal="true"><div class="v68-edit-head"><div><h2>تعديل الأوردر</h2><small id="v68-edit-ref">—</small></div><button class="v68-close" type="button" onclick="v68CloseEdit()">×</button></div><div class="v68-edit-body">
  <div class="v68-card"><div class="v68-card-title">بيانات العميل <span>التعديل هنا لا يلمس فورم أوردر جديد</span></div><div class="v68-grid">
- <div class="v68-field"><label>اسم العميل</label><input id="v68-customer"></div><div class="v68-field"><label>الموبايل</label><input id="v68-phone" dir="ltr"></div><div class="v68-field"><label>رقم احتياطي</label><input id="v68-phone2" dir="ltr"></div><div class="v68-field"><label>المحافظة</label><select id="v68-gov" onchange="v68EditAutoShipping()"></select></div>
- <div class="v68-field"><label>المنطقة</label><input id="v68-area"></div><div class="v68-field v68-span2"><label>العنوان التفصيلي</label><input id="v68-address"></div><div class="v68-field"><label>التاريخ</label><input type="date" id="v68-date"></div>
+ <div class="v68-field"><label>اسم العميل</label><input id="v68-customer"></div><div class="v68-field"><label>الموبايل</label><input id="v68-phone" dir="ltr"></div><div class="v68-field"><label>رقم احتياطي</label><input id="v68-phone2" dir="ltr"></div><div class="v68-field"><label>المحافظة</label><select id="v68-gov" onchange="v68EditAutoShipping();v68PopulateAreaSelect()"></select></div>
+ <div class="v68-field"><label>المنطقة</label><select id="v68-area-select" onchange="document.getElementById('v68-area').value=this.value"><option value="">-- اختر المنطقة --</option></select><input id="v68-area" placeholder="أو اكتب يدويًا" style="margin-top:6px"></div><div class="v68-field v68-span2"><label>العنوان التفصيلي</label><input id="v68-address"></div><div class="v68-field"><label>التاريخ</label><input type="date" id="v68-date"></div>
  </div></div>
  <div class="v68-card"><div class="v68-card-title">المنتجات <span>تقدر تغير الكمية أو تضيف/تحذف صنف</span></div><div id="v68-edit-items"></div><div class="v68-add-item"><input id="v68-add-product" list="v68-product-list" placeholder="اختار منتج من المخزن"><datalist id="v68-product-list"></datalist><input type="number" id="v68-add-qty" min="1" value="1"><button type="button" class="btn btn-ghost" onclick="v68AddEditItem()">+ إضافة</button></div><div class="v68-edit-summary" id="v68-edit-cart-summary"></div></div>
  <div class="v68-card"><div class="v68-card-title">الشحن والتحصيل <span>الحساب يتحدث تلقائيًا</span></div><div class="v68-grid">
@@ -5703,6 +5695,12 @@ window.v68AddEditItem=function(){
  else if(b){const cost=(b.items||[]).reduce((s,id)=>s+(Number(productsData[id]?.cost)||0),0);item={id:b.id,name:b.name,commName:b.name||'',stockName:b.name||'',commUrl:'',price:Number(b.price)||0,cost,isBundle:true,qty};}
  else return alert('المنتج مش موجود في المخزن.');v68EditCart.push(item);document.getElementById('v68-add-product').value='';document.getElementById('v68-add-qty').value=1;v68RenderEditCart();
 };
+function v68PopulateAreaSelect(preserve){
+ const gov=document.getElementById('v68-gov')?.value||'',sel=document.getElementById('v68-area-select'),inp=document.getElementById('v68-area');if(!sel)return;
+ const keep=preserve!==undefined?preserve:(inp?.value||'');const areas=CITY_AREAS[gov]||[];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+v68Esc(a)+'">'+v68Esc(a)+'</option>').join('');
+ const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));sel.value=hit||'';if(inp&&hit)inp.value=hit;else if(inp&&preserve!==undefined)inp.value=keep||'';
+}
+window.v68PopulateAreaSelect=v68PopulateAreaSelect;
 function v68RefreshEditSummary(){
  const rev=v68EditCart.reduce((s,i)=>s+(Number(i.price)||0)*(Number(i.qty)||1),0),shipping=document.getElementById('v68-free-shipping')?.checked?0:Number(document.getElementById('v68-shipping')?.value||0),pre=Number(document.getElementById('v68-prepaid')?.value||0),disc=Number(document.getElementById('v68-discount')?.value||0),cod=Math.max(0,rev+shipping-disc-pre);
  const box=document.getElementById('v68-edit-cart-summary');if(box)box.innerHTML=`<span class="v68-pill">المنتجات ${v68Money(rev)}</span><span class="v68-pill">COD ${v68Money(cod)}</span><span class="v68-pill">مدفوع ${v68Money(pre)}</span>`;
@@ -5713,7 +5711,7 @@ window.editSale=function(key){
  v68EnsureModal();const s=salesData?.[key];if(!s)return alert('تعذر فتح الأوردر. اعمل تحديث للصفحة وحاول تاني.');v68EditKey=key;v68EditCart=Array.isArray(s.items)?JSON.parse(JSON.stringify(s.items)).map(i=>({...i,commName:i.commName||i.name||'',stockName:i.stockName||i.name||''})):[];if(!v68EditCart.length&&s.name)v68EditCart=[{id:s.productId||'',name:s.name,price:(Number(s.revenue)||0)/(Number(s.qty)||1),cost:(Number(s.cogs)||0)/(Number(s.qty)||1),isBundle:!!s.isBundle,qty:Number(s.qty)||1,commName:s.commName||'',commUrl:s.commUrl||''}];v68EditLabels=Array.isArray(s.labels)?[...s.labels]:[];
  const gov=document.getElementById('v68-gov'),srcGov=document.getElementById('sale-gov');gov.innerHTML=srcGov?srcGov.innerHTML:'<option value="">-- اختر --</option>';gov.value=s.gov||'';
  const list=document.getElementById('v68-product-list');list.innerHTML=[...Object.values(productsData||{}),...Object.values(bundlesData||{})].map(x=>`<option value="${v68Esc(x.name||'')}">`).join('');
- const vals={'v68-customer':s.customer||'','v68-phone':s.phone||'','v68-phone2':s.phone2||'','v68-area':s.area||'','v68-address':s.address||'','v68-date':s.date||v68Today(),'v68-shipping':s.freeShipping?0:(Number(s.shipping)||0),'v68-real-shipping':Number(s.actualShippingCost??s.shipping??0)||0,'v68-prepaid':Number(s.prepaidAmount??s.deposit??0)||0,'v68-discount':Number(s.discount)||0,'v68-notes':s.notes||''};Object.entries(vals).forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v});
+ v68PopulateAreaSelect(s.area||'');const vals={'v68-customer':s.customer||'','v68-phone':s.phone||'','v68-phone2':s.phone2||'','v68-area':s.area||'','v68-address':s.address||'','v68-date':s.date||v68Today(),'v68-shipping':s.freeShipping?0:(Number(s.shipping)||0),'v68-real-shipping':Number(s.actualShippingCost??s.shipping??0)||0,'v68-prepaid':Number(s.prepaidAmount??s.deposit??0)||0,'v68-discount':Number(s.discount)||0,'v68-notes':s.notes||''};Object.entries(vals).forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v});
  document.getElementById('v68-payment').value=s.paymentMethod||((Number(s.deposit)||0)>0?'InstaPay':'COD');document.getElementById('v68-status').value=s.status||'قيد التجهيز';document.getElementById('v68-source').value=s.source||'تيك توك';document.getElementById('v68-order-type').value=s.orderType||'normal';document.getElementById('v68-free-shipping').checked=!!s.freeShipping;document.getElementById('v68-free-wrap').checked=!!s.freeWrapping;document.getElementById('v68-edit-ref').textContent='#'+String(key).slice(-6)+' • '+(s.customer||'');
  v68RenderEditLabels();v68RenderEditCart();const r=v68ShippingRule(s.gov||'');const info=document.getElementById('v68-edit-ship-info');if(info){const diff=(Number(s.actualShippingCost??s.shipping??0)||0)-(s.freeShipping?0:(Number(s.shipping)||0));info.className='v68-ship-info'+(diff>0?' loss':'');info.textContent=(r.label||'الشحن')+': المحفوظ للعميل '+(s.freeShipping?0:(Number(s.shipping)||0))+' / الحقيقي '+(Number(s.actualShippingCost??s.shipping??0)||0)+(diff>0?' — فرق '+diff+' على المتجر':'');}
  document.getElementById('v68-edit-overlay').classList.add('open');
@@ -5725,7 +5723,7 @@ window.v68SaveEdit=function(){
  for(const pid of ids){if(!productsData[pid])continue;let qty=Number(productsData[pid].qty)||0;if(oldActive)qty+=oldMap[pid]||0;if(newActive)qty-=newMap[pid]||0;if(qty<0)return alert('المخزون لا يكفي للمنتج: '+(productsData[pid].name||pid));updates['products/'+pid+'/qty']=qty;}
  let rev=0,cogs=0;v68EditCart.forEach(i=>{rev+=(Number(i.price)||0)*(Number(i.qty)||1);if(i.isBundle)cogs+=(bundlesData[i.id]?.items||[]).reduce((sum,pid)=>sum+(Number(productsData[pid]?.cost)||0)*(Number(i.qty)||1),0);else cogs+=(Number(i.cost)||0)*(Number(i.qty)||1)});
  const free=!!document.getElementById('v68-free-shipping').checked,shipping=free?0:(Number(document.getElementById('v68-shipping').value)||0),real=Number(document.getElementById('v68-real-shipping').value)||0,pre=Number(document.getElementById('v68-prepaid').value)||0,discount=Number(document.getElementById('v68-discount').value)||0,totalQty=v68EditCart.reduce((a,i)=>a+(Number(i.qty)||1),0),name=v68EditCart.map(i=>`${i.commName||i.name} (x${Number(i.qty)||1})`).join(' + ');
- const updated={...s,id:s.id||key,name,items:v68EditCart,qty:totalQty,revenue:rev,cogs,customer,phone,phone2:(typeof normalizePhoneStr==='function'?normalizePhoneStr(document.getElementById('v68-phone2').value):document.getElementById('v68-phone2').value.trim()),gov,area:document.getElementById('v68-area').value.trim(),address,shippingTier:v68ShippingRule(gov).tier,shipping,actualShippingCost:real,freeShipping:free,deposit:pre,prepaidAmount:pre,discount,paymentMethod:document.getElementById('v68-payment').value,status:newStatus,source:document.getElementById('v68-source').value,orderType:document.getElementById('v68-order-type').value,freeWrapping:!!document.getElementById('v68-free-wrap').checked,labels:[...v68EditLabels],notes:document.getElementById('v68-notes').value.trim(),date:document.getElementById('v68-date').value||s.date||v68Today(),updatedAt:Date.now()};
+ const updated={...s,id:s.id||key,name,items:v68EditCart,qty:totalQty,revenue:rev,cogs,customer,phone,phone2:(typeof normalizePhoneStr==='function'?normalizePhoneStr(document.getElementById('v68-phone2').value):document.getElementById('v68-phone2').value.trim()),gov,area:document.getElementById('v68-area').value.trim(),areaNeedsReview:!shippingSheetKnownArea(gov,document.getElementById('v68-area').value.trim()),areaReviewReason:!document.getElementById('v68-area').value.trim()?'missing':(!shippingSheetKnownArea(gov,document.getElementById('v68-area').value.trim())?'unmatched':''),address,shippingTier:v68ShippingRule(gov).tier,shipping,actualShippingCost:real,freeShipping:free,deposit:pre,prepaidAmount:pre,discount,paymentMethod:document.getElementById('v68-payment').value,status:newStatus,source:document.getElementById('v68-source').value,orderType:document.getElementById('v68-order-type').value,freeWrapping:!!document.getElementById('v68-free-wrap').checked,labels:[...v68EditLabels],notes:document.getElementById('v68-notes').value.trim(),date:document.getElementById('v68-date').value||s.date||v68Today(),updatedAt:Date.now()};
  updates['sales/'+key]=updated;updates['customers/'+phone]={name:customer,phone,address,source:updated.source,date:updated.date};const btn=document.getElementById('v68-save-edit');btn.disabled=true;btn.textContent='جاري الحفظ...';db.ref().update(updates).then(()=>{try{logAction('تعديل أوردر من النافذة: '+customer)}catch(e){};v68CloseEdit();alert('✅ تم تحديث الأوردر بنجاح.');}).catch(err=>alert('حصل خطأ أثناء التعديل: '+err.message)).finally(()=>{btn.disabled=false;btn.textContent='حفظ التعديلات'});
 };
 
@@ -6079,6 +6077,9 @@ window.addEventListener('DOMContentLoaded',function(){
 })();
 </script>
 
+<style id="azzams-area-review-v17-style">
+@media(max-width:900px){.m17-area-alert{background:#fff1e8;color:#a34200;border-bottom:1px solid #ffd5bb;padding:9px 12px;font-size:.7rem;font-weight:950;line-height:1.6}}
+</style>
 <style id="azzams-admin-mobile-v16-style">
 @media(max-width:900px){
   #mobile-orders-tools{display:block;padding:10px 10px 0}
@@ -6142,6 +6143,7 @@ window.addEventListener('DOMContentLoaded',function(){
     if(f==='prep')return s.status==='قيد التجهيز';
     if(f==='follow')return s.status==='متابعة';
     if(f==='courier')return s.status==='مع المندوب';
+    if(f==='missingArea')return !String(s.area||'').trim()||s.areaNeedsReview===true;
     if(f==='missing')return missingActual(s);
     if(f==='urgent')return Array.isArray(s.labels)&&s.labels.some(x=>String(x).includes('مستعجل')||String(x).includes('عاجل'));
     return true;
@@ -6156,7 +6158,7 @@ window.addEventListener('DOMContentLoaded',function(){
       '<button class="m16-filter" data-f="prep">تجهيز</button>'+
       '<button class="m16-filter" data-f="follow">متابعة</button>'+
       '<button class="m16-filter" data-f="courier">مع المندوب</button>'+
-      '<button class="m16-filter" data-f="missing">⚠️ ناقص اسم فعلي</button>'+
+      '<button class="m16-filter" data-f="missingArea">📍 ناقص المنطقة</button><button class="m16-filter" data-f="missing">⚠️ ناقص اسم فعلي</button>'+
       '<button class="m16-filter" data-f="urgent">⚡ مستعجل</button>'+
       '</div>';
     const cards=document.getElementById('mobile-sales-cards');
@@ -6200,7 +6202,7 @@ window.addEventListener('DOMContentLoaded',function(){
     box.innerHTML=rows.map(([k,s])=>{
       const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
       const prepaid=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit),due=Math.max(0,total-prepaid);
-      const stc=statusClass(s.status),labels=Array.isArray(s.labels)?s.labels:[];
+      const stc=statusClass(s.status),labels=Array.isArray(s.labels)?s.labels:[],areaMissing=!String(s.area||'').trim(),areaReview=areaMissing||s.areaNeedsReview===true;
       const meta=[
         s.sellerName?'<span class="m16-chip seller">🎧 '+esc(s.sellerName)+'</span>':'',
         s.source?'<span class="m16-chip source">📣 '+esc(s.source)+'</span>':'',
@@ -6211,6 +6213,7 @@ window.addEventListener('DOMContentLoaded',function(){
       const courierNote=s.courierNote?'<div class="m16-note courier">🛵 '+esc(s.courierNote)+'</div>':'';
       const ph=typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'';
       return '<article class="m16-card '+cardClass(s.status)+'">'+
+        (areaReview?'<div class="m17-area-alert">'+(areaMissing?'⚠️ الأوردر ناقص المنطقة — لازم تتراجع قبل التصدير للشحن':'⚠️ المنطقة محتاجة مراجعة مع قائمة شركة الشحن: '+esc(s.area||''))+'</div>':'')+
         '<div class="m16-head"><div><div class="m16-customer">'+esc(s.customer||'—')+'</div><div class="m16-ref">#'+esc(k.slice(-6))+' · '+esc(s.date||'')+' · '+esc(ageText(s))+'</div></div><span class="m16-status '+stc+'">'+esc(s.status||'—')+'</span></div>'+
         '<div class="m16-contact"><div class="m16-phone">'+esc(ph)+(s.phone2?' · '+esc(typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone2):s.phone2):'')+'</div><div class="m16-address">📍 '+esc([s.gov,s.area,s.address].filter(Boolean).join(' — ')||'العنوان غير مسجل')+'</div></div>'+
         '<div class="m16-section"><div class="m16-section-title">المنتجات</div><div class="m16-products">'+productHTML(s)+'</div></div>'+
