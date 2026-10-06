@@ -314,6 +314,7 @@ window.saveOrder=async function(){
  if(!currentModerator)return;const name=$('customer').value.trim(),ph=phone($('phone').value),gov=$('gov').value,addr=$('address').value.trim();
  if(!name||ph.length<10||!gov||!addr)return alert('كمل الاسم والموبايل والمحافظة والعنوان.');
  if(!cart.length)return alert('أضف منتج واحد على الأقل.');
+ if(labels.includes('💌 رسالة هدية')&&!$('gift-message').value.trim())return alert('اكتب رسالة الهدية أو شيل اختيار رسالة هدية.');
  if(checkDuplicate()&&!confirm('العميل عنده أوردر مفتوح. تسجل أوردر تاني برضه؟'))return;
  const areaValue=$('area').value.trim(),areaValid=knownArea(gov,areaValue);if(!areaValue)toast('⚠️ الأوردر هيتسجل بدون منطقة وهيظهر للإدارة للمراجعة');const r=shipRule(gov),freeShipping=!!$('free-shipping')?.checked,customerShip=freeShipping?0:r.customer,discount=Math.max(0,num($('discount')?.value)),pre=Math.max(0,num($('prepaid').value)),rev=cart.reduce((s,x)=>s+x.price*x.qty,0),payable=Math.max(0,rev+customerShip-discount);
  if(discount>rev+customerShip)return alert('الخصم أكبر من قيمة الأوردر.');if(pre>payable)return alert('المقدم أكبر من إجمالي الأوردر بعد الخصم.');
