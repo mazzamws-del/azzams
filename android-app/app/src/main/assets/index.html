@@ -6165,6 +6165,12 @@ window.addEventListener('DOMContentLoaded',function(){
     if(f==='urgent')return Array.isArray(s.labels)&&s.labels.some(x=>String(x).includes('مستعجل')||String(x).includes('عاجل'));
     return true;
   }
+  function ensureSelectionBar(){
+    let bar=document.getElementById('m18-selection-bar');if(bar)return bar;
+    bar=document.createElement('div');bar.id='m18-selection-bar';
+    bar.innerHTML='<b>محدد <span id="m18-selection-count">0</span></b><button onclick="azzamsPrepSelected()">📋 تجهيز</button><button onclick="azzamsExportSelected()">🚚 شحن</button><button onclick="azzamsAssignSelected()">🛵 مندوب</button><button class="close" onclick="azzamsClearMobileSelection()">×</button>';
+    document.body.appendChild(bar);return bar;
+  }
   function ensureTools(wrap){
     let tools=document.getElementById('mobile-orders-tools');
     if(tools)return tools;
@@ -6194,7 +6200,7 @@ window.addEventListener('DOMContentLoaded',function(){
     const wrap=document.querySelector('#section-sales .data-table-wrap');if(!wrap)return;
     let box=document.getElementById('mobile-sales-cards');
     if(!box){box=document.createElement('div');box.id='mobile-sales-cards';wrap.appendChild(box)}
-    ensureTools(wrap);
+    ensureTools(wrap);ensureSelectionBar();
 
     const search=(document.getElementById('sales-search-input')?.value||'').trim().toLowerCase();
     const status=document.getElementById('sales-status-filter')?.value||'';
@@ -6218,7 +6224,7 @@ window.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('.sale-cb').forEach(cb=>cb.checked=window.azzamsMobileSelected.has(cb.value));
     refreshMobileSelectionBar();
     const visibleDue=rows.reduce((sum,[,s])=>sum+dueOf(s),0);
-    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;
+    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;
 
     box.innerHTML=rows.map(([k,s])=>{
       const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
