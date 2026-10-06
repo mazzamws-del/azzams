@@ -6078,6 +6078,163 @@ window.addEventListener('DOMContentLoaded',function(){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
 </script>
+
+<style id="azzams-admin-mobile-v16-style">
+@media(max-width:900px){
+  #mobile-orders-tools{display:block;padding:10px 10px 0}
+  .m16-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#151821;color:#fff;border-radius:15px;padding:12px 13px;margin-bottom:9px;box-shadow:0 8px 20px rgba(15,23,42,.14)}
+  .m16-summary span{font-size:.69rem;color:#aeb6c5;font-weight:800}.m16-summary b{display:block;font-size:1rem;margin-top:2px}
+  .m16-filters{display:flex;gap:6px;overflow-x:auto;padding:1px 0 8px;scrollbar-width:none}.m16-filters::-webkit-scrollbar{display:none}
+  .m16-filter{border:1px solid #e2e6ec;background:#fff;color:#687180;border-radius:999px;padding:8px 11px;font-size:.67rem;font-weight:900;white-space:nowrap}
+  .m16-filter.active{background:#4A1425;color:#fff;border-color:#4A1425}
+  #mobile-sales-cards{gap:12px!important;padding:8px 10px 12px!important}
+  .m16-card{background:#fff;border:1px solid #e3e6eb;border-radius:18px;overflow:hidden;box-shadow:0 5px 18px rgba(15,23,42,.07)}
+  .m16-card.status-prep{border-top:4px solid #6d4ff1}.m16-card.status-follow{border-top:4px solid #d97706}.m16-card.status-courier{border-top:4px solid #2563eb}.m16-card.status-exchange{border-top:4px solid #0f766e}
+  .m16-head{padding:12px 13px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .m16-customer{font-size:1.05rem;font-weight:950;line-height:1.25;color:#14171d}.m16-ref{font-size:.65rem;color:#89919e;font-weight:800;margin-top:4px}
+  .m16-status{border-radius:999px;padding:5px 8px;font-size:.65rem;font-weight:950;white-space:nowrap;background:#f1f5f9;color:#475569}
+  .m16-status.prep{background:#f1edff;color:#5b3fc5}.m16-status.follow{background:#fff3df;color:#9a6200}.m16-status.courier{background:#eaf2ff;color:#1d4ed8}.m16-status.exchange{background:#e9fbf7;color:#0f766e}
+  .m16-contact{margin:0 13px;background:#f8fafc;border:1px solid #edf0f3;border-radius:12px;padding:9px 10px}
+  .m16-phone{font-weight:900;font-size:.79rem;color:#4A1425;direction:ltr;text-align:right}.m16-address{font-size:.72rem;color:#5f6877;line-height:1.65;margin-top:4px}
+  .m16-section{padding:10px 13px 0}.m16-section-title{font-size:.63rem;color:#8a93a1;font-weight:950;margin-bottom:5px}
+  .m16-products{display:flex;flex-direction:column;gap:6px}.m16-product{position:relative;background:#fbfbfc;border:1px solid #eceef2;border-radius:11px;padding:8px 39px 8px 9px}
+  .m16-product b{display:block;font-size:.78rem;color:#171a20}.m16-product small{display:block;font-size:.62rem;color:#8a93a1;margin-top:3px}.m16-product .qty{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#171a20;color:#fff;border-radius:8px;min-width:26px;padding:4px;text-align:center;font-size:.66rem;font-weight:950}
+  .m16-product.missing{background:#fff8ea;border-color:#f3d28c}.m16-product.missing b{color:#956000}
+  .m16-meta{display:flex;gap:5px;flex-wrap:wrap;padding:9px 13px 0}.m16-chip{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:5px 8px;background:#f3f4f6;color:#586170;font-size:.62rem;font-weight:900}
+  .m16-chip.courier{background:#eaf2ff;color:#1d4ed8}.m16-chip.seller{background:#f5f0ff;color:#6645c8}.m16-chip.source{background:#eefbf5;color:#087a55}.m16-chip.warn{background:#fff1e7;color:#b45309}.m16-chip.label{background:#171a20;color:#fff}
+  .m16-money{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 13px 0}.m16-money>div{border:1px solid #e5e7eb;border-radius:11px;padding:8px;background:#fff}.m16-money span{display:block;font-size:.59rem;color:#89919e;font-weight:800}.m16-money b{display:block;font-size:.84rem;margin-top:2px}.m16-money .due{background:#fff8ea;border-color:#f3d28c}.m16-money .due b{color:#8d5900;font-size:1rem}
+  .m16-note{margin:8px 13px 0;border-radius:10px;padding:8px 9px;font-size:.68rem;line-height:1.6;font-weight:800}.m16-note.admin{background:#f8fafc;color:#5a6473}.m16-note.courier{background:#eef6ff;color:#2457a7}
+  .m16-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:11px 13px 13px}
+  .m16-actions button,.m16-actions a{border:0;text-decoration:none;border-radius:10px;min-height:42px;font-size:.66rem;font-weight:950;display:flex;align-items:center;justify-content:center;gap:4px;background:#f3f4f6;color:#2c3440}
+  .m16-actions .edit{background:#4A1425;color:#fff}.m16-actions .assign{background:#fff0d6;color:#8b5b00}
+  .m16-empty{padding:38px 14px;text-align:center;color:#89919e}
+}
+</style>
+<script id="azzams-admin-mobile-v16">
+(function(){
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const num=v=>Number(v)||0;
+  const money=v=>Math.round(num(v)).toLocaleString('ar-EG')+' ج';
+  window.azzamsMobileOrderFilter=window.azzamsMobileOrderFilter||'all';
+
+  function itemActual(i){return String(i?.commName||'').trim()}
+  function itemStock(i){return String(i?.stockName||i?.name||'').trim()}
+  function missingActual(s){return Array.isArray(s.items)&&s.items.length?s.items.some(i=>!itemActual(i)):!String(s.commName||'').trim()}
+  function productSearchText(s){return Array.isArray(s.items)?s.items.map(i=>(i.commName||'')+' '+(i.name||'')+' '+(i.stockName||'')).join(' '):(s.name||'')}
+  function statusClass(st){if(st==='قيد التجهيز')return 'prep';if(st==='متابعة')return 'follow';if(st==='مع المندوب')return 'courier';if(st==='استبدال')return 'exchange';return ''}
+  function cardClass(st){const c=statusClass(st);return c?'status-'+c:''}
+  function dueOf(s){const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,total-pre)}
+  function ageText(s){
+    const ts=num(s.timestamp);if(!ts)return s.date||'';
+    const days=Math.floor((Date.now()-ts)/86400000);
+    if(days<=0)return 'اليوم';if(days===1)return 'من امبارح';return 'من '+days+' أيام';
+  }
+  function productHTML(s){
+    const items=Array.isArray(s.items)&&s.items.length?s.items:[{name:s.name||'منتج',commName:s.commName||'',qty:s.qty||1}];
+    return items.map(i=>{
+      const actual=itemActual(i),stock=itemStock(i),missing=!actual;
+      const title=actual||stock||'اسم فعلي غير محدد';
+      return '<div class="m16-product '+(missing?'missing':'')+'"><b>'+(missing?'⚠️ ':'')+esc(title)+'</b><small>'+(stock&&stock!==title?'المخزون: '+esc(stock):missing?'اضغط تعديل واكتب الاسم الفعلي':'')+'</small><span class="qty">×'+(num(i.qty)||1)+'</span></div>';
+    }).join('');
+  }
+  function matchQuickFilter(s){
+    const f=window.azzamsMobileOrderFilter;
+    if(f==='prep')return s.status==='قيد التجهيز';
+    if(f==='follow')return s.status==='متابعة';
+    if(f==='courier')return s.status==='مع المندوب';
+    if(f==='missing')return missingActual(s);
+    if(f==='urgent')return Array.isArray(s.labels)&&s.labels.some(x=>String(x).includes('مستعجل')||String(x).includes('عاجل'));
+    return true;
+  }
+  function ensureTools(wrap){
+    let tools=document.getElementById('mobile-orders-tools');
+    if(tools)return tools;
+    tools=document.createElement('div');tools.id='mobile-orders-tools';
+    tools.innerHTML='<div class="m16-summary"><div><span>الأوردرات الظاهرة</span><b id="m16-visible-count">0</b></div><div style="text-align:left"><span>إجمالي المطلوب</span><b id="m16-visible-due">0 ج</b></div></div>'+
+      '<div class="m16-filters">'+
+      '<button class="m16-filter active" data-f="all">الكل</button>'+
+      '<button class="m16-filter" data-f="prep">تجهيز</button>'+
+      '<button class="m16-filter" data-f="follow">متابعة</button>'+
+      '<button class="m16-filter" data-f="courier">مع المندوب</button>'+
+      '<button class="m16-filter" data-f="missing">⚠️ ناقص اسم فعلي</button>'+
+      '<button class="m16-filter" data-f="urgent">⚡ مستعجل</button>'+
+      '</div>';
+    const cards=document.getElementById('mobile-sales-cards');
+    if(cards)wrap.insertBefore(tools,cards);else wrap.appendChild(tools);
+    tools.addEventListener('click',e=>{
+      const b=e.target.closest('.m16-filter');if(!b)return;
+      window.azzamsMobileOrderFilter=b.dataset.f||'all';
+      tools.querySelectorAll('.m16-filter').forEach(x=>x.classList.toggle('active',x===b));
+      window.renderMobileSalesCards();
+    });
+    return tools;
+  }
+
+  window.renderMobileSalesCards=function(){
+    const wrap=document.querySelector('#section-sales .data-table-wrap');if(!wrap)return;
+    let box=document.getElementById('mobile-sales-cards');
+    if(!box){box=document.createElement('div');box.id='mobile-sales-cards';wrap.appendChild(box)}
+    ensureTools(wrap);
+
+    const search=(document.getElementById('sales-search-input')?.value||'').trim().toLowerCase();
+    const status=document.getElementById('sales-status-filter')?.value||'';
+    const shipping=document.getElementById('sales-shipping-filter')?.value||'';
+    const active=['قيد التجهيز','متابعة','مع المندوب','استبدال'];
+
+    let rows=Object.entries(window.salesData||salesData||{}).filter(([k,s])=>{
+      if(!active.includes(s.status))return false;
+      const hay=((s.customer||'')+' '+(s.phone||'')+' '+(s.phone2||'')+' '+(s.address||'')+' '+(s.gov||'')+' '+(s.area||'')+' '+(s.sellerName||'')+' '+(s.courierName||'')+' '+(s.source||'')+' '+productSearchText(s)+' '+((s.labels||[]).join(' '))).toLowerCase();
+      if(search&&!hay.includes(search))return false;
+      if(status&&s.status!==status)return false;
+      if(shipping){
+        const gov=(s.gov||'').trim(),cg=['القاهرة','الجيزة','اطراف القاهرة','أطراف القاهرة','اطراف الجيزة','أطراف الجيزة'].includes(gov);
+        if(shipping==='cairo_giza'&&!cg)return false;if(shipping==='govs'&&cg)return false;
+      }
+      if(!matchQuickFilter(s))return false;
+      return true;
+    }).sort((a,b)=>num(b[1].timestamp)-num(a[1].timestamp));
+
+    const visibleDue=rows.reduce((sum,[,s])=>sum+dueOf(s),0);
+    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);
+
+    box.innerHTML=rows.map(([k,s])=>{
+      const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
+      const prepaid=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit),due=Math.max(0,total-prepaid);
+      const stc=statusClass(s.status),labels=Array.isArray(s.labels)?s.labels:[];
+      const meta=[
+        s.sellerName?'<span class="m16-chip seller">🎧 '+esc(s.sellerName)+'</span>':'',
+        s.source?'<span class="m16-chip source">📣 '+esc(s.source)+'</span>':'',
+        s.courierName?'<span class="m16-chip courier">🛵 '+esc(s.courierName)+(s.courierPostponedUntil?' · ⏰ '+esc(s.courierPostponedUntil):'')+'</span>':'',
+        missingActual(s)?'<span class="m16-chip warn">⚠️ ناقص اسم فعلي</span>':''
+      ].join('')+labels.map(l=>'<span class="m16-chip label">'+esc(l)+'</span>').join('');
+      const adminNote=s.notes?'<div class="m16-note admin">🗒️ '+esc(s.notes)+'</div>':'';
+      const courierNote=s.courierNote?'<div class="m16-note courier">🛵 '+esc(s.courierNote)+'</div>':'';
+      const ph=typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'';
+      return '<article class="m16-card '+cardClass(s.status)+'">'+
+        '<div class="m16-head"><div><div class="m16-customer">'+esc(s.customer||'—')+'</div><div class="m16-ref">#'+esc(k.slice(-6))+' · '+esc(s.date||'')+' · '+esc(ageText(s))+'</div></div><span class="m16-status '+stc+'">'+esc(s.status||'—')+'</span></div>'+
+        '<div class="m16-contact"><div class="m16-phone">'+esc(ph)+(s.phone2?' · '+esc(typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone2):s.phone2):'')+'</div><div class="m16-address">📍 '+esc([s.gov,s.area,s.address].filter(Boolean).join(' — ')||'العنوان غير مسجل')+'</div></div>'+
+        '<div class="m16-section"><div class="m16-section-title">المنتجات</div><div class="m16-products">'+productHTML(s)+'</div></div>'+
+        '<div class="m16-meta">'+meta+'</div>'+
+        '<div class="m16-money"><div><span>قيمة المنتجات</span><b>'+money(num(s.revenue)-num(s.discount))+'</b></div><div><span>مدفوع</span><b>'+money(prepaid)+'</b></div><div class="due"><span>تحصيل</span><b>'+money(due)+'</b></div></div>'+
+        adminNote+courierNote+
+        '<div class="m16-actions">'+
+          '<button class="edit" onclick="editSale(\''+k+'\')">✏️ تعديل</button>'+
+          '<button class="assign" onclick="assignCourierToOne(\''+k+'\')">🛵 مندوب</button>'+
+          '<a href="tel:'+esc(ph)+'">📞 اتصال</a>'+
+          '<button onclick="sendWhatsApp(\''+k+'\')">💬 واتساب</button>'+
+        '</div></article>';
+    }).join('')||'<div class="m16-empty">مفيش أوردرات مطابقة للفلاتر الحالية.</div>';
+  };
+
+  // Re-render when desktop/mobile search filters change.
+  ['sales-search-input','sales-status-filter','sales-shipping-filter'].forEach(id=>{
+    const el=document.getElementById(id);if(!el||el.dataset.m16Bound)return;el.dataset.m16Bound='1';
+    el.addEventListener(el.tagName==='INPUT'?'input':'change',()=>{if(window.innerWidth<=900)window.renderMobileSalesCards()});
+  });
+
+  setTimeout(()=>{if(window.innerWidth<=900)window.renderMobileSalesCards()},300);
+})();
+</script>
 <style id="azzams-courier-admin-v1">
 .courier-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:18px}
 .courier-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:15px;box-shadow:0 2px 10px rgba(15,23,42,.04)}
