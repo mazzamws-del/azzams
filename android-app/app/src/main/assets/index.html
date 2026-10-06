@@ -4722,7 +4722,7 @@ function bulkChangeStatus(selector, selectId) {
 }
 
 function printPreparationList(selector) {
-    const checked = document.querySelectorAll(selector);
+    const checked = [...new Map([...document.querySelectorAll(selector)].map(x=>[x.value,x])).values()];
     if (!checked.length) return alert('برجاء تحديد أوردرات أولاً.');
     let cards = '';
     [...checked].forEach((cb, idx) => {
@@ -6097,7 +6097,7 @@ window.addEventListener('DOMContentLoaded',function(){
   .m16-filter.active{background:#4A1425;color:#fff;border-color:#4A1425}
   #mobile-sales-cards{gap:12px!important;padding:8px 10px 12px!important}
   .m16-card{background:#fff;border:1px solid #e3e6eb;border-radius:18px;overflow:hidden;box-shadow:0 5px 18px rgba(15,23,42,.07)}
-  .m16-card.status-prep{border-top:4px solid #6d4ff1}.m16-card.status-follow{border-top:4px solid #d97706}.m16-card.status-courier{border-top:4px solid #2563eb}.m16-card.status-exchange{border-top:4px solid #0f766e}
+  .m16-card.status-prep{border-top:4px solid #6d4ff1}.m16-card.status-follow{border-top:4px solid #d97706}.m16-card.status-courier{border-top:4px solid #2563eb}.m16-card.status-exchange{border-top:4px solid #0f766e}.m16-card:has(.m16-select-input:checked){outline:2px solid #4A1425;outline-offset:-2px;box-shadow:0 8px 22px rgba(74,20,37,.12)}
   .m16-head{padding:12px 13px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:9px}.m16-select{display:block;margin-top:1px}.m16-select input{display:none}.m16-select span{display:grid;width:25px;height:25px;border:2px solid #cbd1d9;border-radius:8px;background:#fff;place-items:center}.m16-select input:checked+span{background:#4A1425;border-color:#4A1425}.m16-select input:checked+span:after{content:'✓';color:#fff;font-size:15px;font-weight:950}
   .m16-customer{font-size:1.05rem;font-weight:950;line-height:1.25;color:#14171d}.m16-ref{font-size:.65rem;color:#89919e;font-weight:800;margin-top:4px}
   .m16-status{border-radius:999px;padding:5px 8px;font-size:.65rem;font-weight:950;white-space:nowrap;background:#f1f5f9;color:#475569}
