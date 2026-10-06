@@ -230,8 +230,9 @@ function selectedProduct(){
 }
 window.productHint=function(){const p=selectedProduct(),h=$('product-hint'),a=$('actual-name');if(!p){h.textContent='';return}h.className='product-hint '+(p.avail<=0?'out':p.avail<=5?'low':'ok');h.textContent=p.avail<=0?'غير متاح حاليًا':p.avail<=5?'قرب يخلص':'متاح';if(a&&!a.value.trim())a.value=p.name||''}
 window.addCart=function(){
- const p=selectedProduct(),q=Math.max(1,parseInt($('qty').value)||1),actual=($('actual-name').value||'').trim();if(!p)return alert('اختار منتج من المخزن.');if(!actual)return alert('اكتب الاسم الفعلي للمنتج.');if(p.avail<q)return alert('الكمية المطلوبة غير متاحة.');
- const existing=cart.find(x=>x.id===p.id&&String(x.commName||x.name||'').trim()===actual);if(existing){if(existing.qty+q>p.avail)return alert('الكمية الإجمالية غير متاحة.');existing.qty+=q}else cart.push({...p,qty:q,commName:actual,stockName:p.name});
+ const p=selectedProduct(),q=Math.max(1,parseInt($('qty').value)||1),actual=($('actual-name').value||'').trim();if(!p)return alert('اختار منتج من المخزن.');if(!actual)return alert('اكتب الاسم الفعلي للمنتج.');
+ const already=cart.filter(x=>x.id===p.id).reduce((sum,x)=>sum+(num(x.qty)||1),0);if(already+q>p.avail)return alert('الكمية الإجمالية المطلوبة أكبر من المتاح في المخزن.');
+ const existing=cart.find(x=>x.id===p.id&&String(x.commName||x.name||'').trim()===actual);if(existing)existing.qty+=q;else cart.push({...p,qty:q,commName:actual,stockName:p.name});
  $('qty').value=1;$('actual-name').value='';$('product').value='';$('product-hint').textContent='';renderCart();saveDraft()
 }
 window.removeCart=function(i){cart.splice(i,1);renderCart();saveDraft()}
