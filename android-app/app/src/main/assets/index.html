@@ -6236,7 +6236,6 @@ window.addEventListener('DOMContentLoaded',function(){
         s.courierName?'<span class="m16-chip courier">🛵 '+esc(s.courierName)+(s.courierPostponedUntil?' · ⏰ '+esc(s.courierPostponedUntil):'')+'</span>':'',
         missingActual(s)?'<span class="m16-chip warn">⚠️ ناقص اسم فعلي</span>':''
       ].join('')+labels.map(l=>'<span class="m16-chip label">'+esc(l)+'</span>').join('');
-      const giftMessage=s.giftMessage?'<div class="m16-gift">💌 <b>رسالة الهدية</b><div>'+esc(s.giftMessage)+'</div></div>':'';
       const giftMessage=s.giftMessage?'<div class="m16-gift">💌 <b>رسالة الهدية</b><div>'+esc(s.giftMessage)+'</div></div>':'';const adminNote=s.notes?'<div class="m16-note admin">🗒️ '+esc(s.notes)+'</div>':'';
       const courierNote=s.courierNote?'<div class="m16-note courier">🛵 '+esc(s.courierNote)+'</div>':'';
       const ph=typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'';
