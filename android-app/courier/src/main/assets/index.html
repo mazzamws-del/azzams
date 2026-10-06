@@ -154,7 +154,8 @@ let db=null,currentCourier=null,orders={},filter='today',salesRef=null;
 const $=id=>document.getElementById(id);
 const num=v=>Number(v)||0;
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-function phone(v){v=String(v||'').replace(/[\s\-()]/g,'');if(v.startsWith('+20'))v='0'+v.slice(3);else if(v.startsWith('0020'))v='0'+v.slice(4);else if(v.startsWith('20')&&v.length>=11)v='0'+v.slice(2);return v}
+function latinDigits(v){return String(v||'').replace(/[٠-٩]/g,d=>'0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]).replace(/[۰-۹]/g,d=>'0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)])}
+function phone(v){v=latinDigits(v).replace(/[^0-9+]/g,'');if(v.startsWith('+20'))v='0'+v.slice(3);else if(v.startsWith('0020'))v='0'+v.slice(4);else if(v.startsWith('20')&&v.length>=11)v='0'+v.slice(2);return v}
 function wa(v){let x=phone(v).replace(/\D/g,'');if(x.startsWith('0'))x='2'+x;return x}
 function localDate(ts){const d=ts?new Date(ts):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return localDate(d)}
@@ -278,50 +279,59 @@ function renderOrders(){
 
 window._courierSaving=false;
 async function saveFinal(key,type,reason,note){
-  const s=orders[key];if(!s||s.courierResult)return false;
+  const sale=orders[key];if(!sale||sale.courierResult)return false;
+  if(!currentCourier||!currentCourier.id){alert('جلسة المندوب غير مكتملة. اعمل خروج ودخول مرة تانية.');return false}
   if(window._courierSaving){toast('⏳ استنى لحظة، جاري حفظ الحالة');return false}
   window._courierSaving=true;
-  const f=financeFor(s,type),ts=Date.now(),updates={},base='sales/'+key+'/';
-  updates[base+'courierResult']=type;updates[base+'courierResultAt']=ts;
-  updates[base+'customerCollectedAmount']=f.collected;updates[base+'courierCollectedAmount']=f.collected;
-  updates[base+'courierShippingFee']=f.fee;updates[base+'storeDueFromCourier']=f.storeDue;updates[base+'courierDueFromStore']=f.courierDue;
-  updates[base+'courierSettledAt']=null;updates[base+'courierCompletedBy']=currentCourier.id;updates[base+'courierCompletedByName']=currentCourier.name;
-  updates[base+'courierDeliveryState']='completed';updates[base+'courierPostponedUntil']=null;updates[base+'courierPostponeNote']=null;
-  if(note)updates[base+'courierNote']=note;
+  const f=financeFor(sale,type),ts=Date.now();
+  const patch={
+    courierResult:type,courierResultAt:ts,
+    customerCollectedAmount:f.collected,courierCollectedAmount:f.collected,
+    courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue,
+    courierSettledAt:null,courierCompletedBy:currentCourier.id,courierCompletedByName:currentCourier.name||'',
+    courierDeliveryState:'completed',courierPostponedUntil:null,courierPostponeNote:null
+  };
+  if(note)patch.courierNote=note;
   if(type==='delivered'){
-    updates[base+'status']='تم التوصيل';updates[base+'deliveredAt']=ts;updates[base+'returnStockPending']=false;
+    patch.status='تم التوصيل';patch.deliveredAt=ts;patch.returnStockPending=false;
+    patch.returnedAt=null;patch.returnReason=null;patch.returnType=null;
   }else{
-    updates[base+'status']=type==='cancelled'?'ملغي':'مرتجع';updates[base+'returnedAt']=ts;updates[base+'returnStockPending']=true;
-    updates[base+'returnReason']=reason||'';updates[base+'returnType']='courier';
-    updates[base+'courierShippingPaid']=type==='returned_paid_shipping';updates[base+'courierShippingCollected']=type==='returned_paid_shipping'?f.collected:0;
+    patch.status=type==='cancelled'?'ملغي':'مرتجع';patch.returnedAt=ts;patch.returnStockPending=true;
+    patch.returnReason=reason||'';patch.returnType='courier';
+    patch.courierShippingPaid=type==='returned_paid_shipping';patch.courierShippingCollected=type==='returned_paid_shipping'?f.collected:0;
   }
-  const ev=addEvent(key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''});
-  updates[ev.path]=ev.value;
   try{
-    await db.ref().update(updates);
-    if(orders[key])orders[key]={...orders[key],courierResult:type,courierResultAt:ts,status:type==='delivered'?'تم التوصيل':(type==='cancelled'?'ملغي':'مرتجع'),customerCollectedAmount:f.collected,courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue};
+    // Save the order first. A notification/event failure must never block delivery completion.
+    await db.ref('sales/'+key).update(patch);
+    const ev=addEvent(key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''});
+    db.ref(ev.path).set(ev.value).catch(err=>console.warn('courier event failed',err));
+    if(orders[key])orders[key]={...orders[key],...patch};
     renderOrders();
-    try{navigator.vibrate&&navigator.vibrate(70)}catch(_){}
-    toast(type==='delivered'?'✅ تم التسليم — عليك تورّد '+money(f.storeDue):'✅ تم حفظ الحالة');
+    try{navigator.vibrate&&navigator.vibrate([60,35,60])}catch(_){}
+    toast(type==='delivered'?'✅ تم التسليم وحفظ الحالة — تورّد '+money(f.storeDue):'✅ تم حفظ الحالة');
     return true;
   }catch(e){
-    alert('تعذر حفظ الحالة. اتأكد من الإنترنت وحاول تاني.\n'+(e&&e.message?e.message:e));
+    console.error('saveFinal',e);
+    alert('تعذر حفظ حالة الأوردر.\n'+(e&&e.message?e.message:e)+'\n\nجرب مرة تانية، ولو استمرت اعمل خروج ودخول للمندوب.');
     return false;
   }finally{window._courierSaving=false}
 }
 window.openDeliveryConfirm=function(key){
-  const s=orders[key];if(!s||s.courierResult)return;
+  const s=orders[key];if(!s)return alert('الأوردر مش موجود أو اتشال من المندوب.');if(s.courierResult)return toast('الأوردر ده متقفل بالفعل: '+resultText(s.courierResult));window._courierSaving=false;
   const f=financeFor(s,'delivered');
-  $('delivery-order').value=key;$('delivery-customer').textContent=s.customer||'—';$('delivery-cod').textContent=money(f.collected);$('delivery-fee').textContent=money(f.fee);$('delivery-store-due').textContent=money(f.storeDue);
+  $('delivery-order').value=key;$('delivery-customer').textContent=(s.customer||'—')+'  #'+String(key).slice(-6);$('delivery-cod').textContent=money(f.collected);$('delivery-fee').textContent=money(f.fee);$('delivery-store-due').textContent=money(f.storeDue);
   const b=$('delivery-confirm-btn');if(b){b.disabled=false;b.textContent='✅ تأكيد تم التسليم'};const c=$('delivery-cancel-btn');if(c)c.disabled=false;openModal('delivery-modal');
 }
 window.saveDelivery=async function(){
-  const key=$('delivery-order').value,b=$('delivery-confirm-btn'),cancel=$('delivery-cancel-btn');if(!key||window._courierSaving)return;
-  if(b){b.disabled=true;b.textContent='⏳ جاري الحفظ...'}if(cancel)cancel.disabled=true;
-  const ok=await saveFinal(key,'delivered','','');
+  const key=$('delivery-order').value,b=$('delivery-confirm-btn'),cancel=$('delivery-cancel-btn');
+  if(!key)return alert('رقم الأوردر غير موجود. اقفل النافذة وافتحها تاني.');
+  if(window._courierSaving)return toast('⏳ جاري حفظ التسليم...');
+  if(b){b.disabled=true;b.textContent='⏳ جاري اعتماد التسليم...'}if(cancel)cancel.disabled=true;
+  let ok=false;
+  try{ok=await saveFinal(key,'delivered','','')}catch(e){console.error(e);alert('حصل خطأ غير متوقع أثناء التسليم: '+e.message)}
   if(cancel)cancel.disabled=false;
   if(ok){closeModal('delivery-modal');$('delivery-order').value=''}
-  else if(b){b.disabled=false;b.textContent='✅ تأكيد تم التسليم'}
+  if(b){b.disabled=false;b.textContent=ok?'✅ تم التسليم':'✅ تأكيد تم التسليم'}
 }
 window.confirmDelivery=window.openDeliveryConfirm;
 window.openReturn=function(key){$('return-order').value=key;$('return-note').value=orders[key]?.courierNote||'';openModal('return-modal')}
