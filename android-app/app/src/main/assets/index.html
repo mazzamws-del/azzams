@@ -3070,10 +3070,10 @@ function restoreStock(sale) {
 }
 
 function updateSelectedCount() {
-    let checked = document.querySelectorAll('.sale-cb:checked').length;
-    let badge = document.getElementById('selected-badge');
-    badge.innerText = 'محدد: ' + checked + ' أوردر';
-    badge.style.display = checked > 0 ? 'inline' : 'none';
+    let nodes=[...document.querySelectorAll('.sale-cb:checked')],checked=new Set(nodes.map(x=>x.value)).size;
+    let badge=document.getElementById('selected-badge');
+    if(badge){badge.innerText='محدد: '+checked+' أوردر';badge.style.display=checked>0?'inline':'none';}
+    let mobile=document.getElementById('m16-selected-count');if(mobile)mobile.textContent=window.azzamsMobileSelected?window.azzamsMobileSelected.size:checked;
 }
 function updateDeliveredCount() {
     let checked = document.querySelectorAll('.delivered-cb:checked').length;
@@ -6092,13 +6092,13 @@ window.addEventListener('DOMContentLoaded',function(){
   #mobile-orders-tools{display:block;padding:10px 10px 0}
   .m16-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#151821;color:#fff;border-radius:15px;padding:12px 13px;margin-bottom:9px;box-shadow:0 8px 20px rgba(15,23,42,.14)}
   .m16-summary span{font-size:.69rem;color:#aeb6c5;font-weight:800}.m16-summary b{display:block;font-size:1rem;margin-top:2px}
-  .m16-filters{display:flex;gap:6px;overflow-x:auto;padding:1px 0 8px;scrollbar-width:none}.m16-filters::-webkit-scrollbar{display:none}
+  .m16-selectbar{display:grid;grid-template-columns:1fr .65fr 1.25fr;gap:6px;margin-bottom:8px}.m16-selectbar button{border:1px solid #dfe3e8;background:#fff;border-radius:10px;padding:8px 6px;font-size:.65rem;font-weight:950;color:#4b5563}.m16-selectbar .prep{background:#4A1425;color:#fff;border-color:#4A1425}.m16-selectbar .prep b{background:#fff;color:#4A1425;border-radius:999px;padding:1px 5px;margin-right:3px}.m16-filters{display:flex;gap:6px;overflow-x:auto;padding:1px 0 8px;scrollbar-width:none}.m16-filters::-webkit-scrollbar{display:none}
   .m16-filter{border:1px solid #e2e6ec;background:#fff;color:#687180;border-radius:999px;padding:8px 11px;font-size:.67rem;font-weight:900;white-space:nowrap}
   .m16-filter.active{background:#4A1425;color:#fff;border-color:#4A1425}
   #mobile-sales-cards{gap:12px!important;padding:8px 10px 12px!important}
   .m16-card{background:#fff;border:1px solid #e3e6eb;border-radius:18px;overflow:hidden;box-shadow:0 5px 18px rgba(15,23,42,.07)}
   .m16-card.status-prep{border-top:4px solid #6d4ff1}.m16-card.status-follow{border-top:4px solid #d97706}.m16-card.status-courier{border-top:4px solid #2563eb}.m16-card.status-exchange{border-top:4px solid #0f766e}
-  .m16-head{padding:12px 13px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .m16-head{padding:12px 13px 9px;display:flex;align-items:flex-start;justify-content:space-between;gap:9px}.m16-select{display:block;margin-top:1px}.m16-select input{display:none}.m16-select span{display:grid;width:25px;height:25px;border:2px solid #cbd1d9;border-radius:8px;background:#fff;place-items:center}.m16-select input:checked+span{background:#4A1425;border-color:#4A1425}.m16-select input:checked+span:after{content:'✓';color:#fff;font-size:15px;font-weight:950}
   .m16-customer{font-size:1.05rem;font-weight:950;line-height:1.25;color:#14171d}.m16-ref{font-size:.65rem;color:#89919e;font-weight:800;margin-top:4px}
   .m16-status{border-radius:999px;padding:5px 8px;font-size:.65rem;font-weight:950;white-space:nowrap;background:#f1f5f9;color:#475569}
   .m16-status.prep{background:#f1edff;color:#5b3fc5}.m16-status.follow{background:#fff3df;color:#9a6200}.m16-status.courier{background:#eaf2ff;color:#1d4ed8}.m16-status.exchange{background:#e9fbf7;color:#0f766e}
@@ -6111,7 +6111,7 @@ window.addEventListener('DOMContentLoaded',function(){
   .m16-meta{display:flex;gap:5px;flex-wrap:wrap;padding:9px 13px 0}.m16-chip{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:5px 8px;background:#f3f4f6;color:#586170;font-size:.62rem;font-weight:900}
   .m16-chip.courier{background:#eaf2ff;color:#1d4ed8}.m16-chip.seller{background:#f5f0ff;color:#6645c8}.m16-chip.source{background:#eefbf5;color:#087a55}.m16-chip.warn{background:#fff1e7;color:#b45309}.m16-chip.label{background:#171a20;color:#fff}
   .m16-money{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 13px 0}.m16-money>div{border:1px solid #e5e7eb;border-radius:11px;padding:8px;background:#fff}.m16-money span{display:block;font-size:.59rem;color:#89919e;font-weight:800}.m16-money b{display:block;font-size:.84rem;margin-top:2px}.m16-money .due{background:#fff8ea;border-color:#f3d28c}.m16-money .due b{color:#8d5900;font-size:1rem}
-  .m16-note{margin:8px 13px 0;border-radius:10px;padding:8px 9px;font-size:.68rem;line-height:1.6;font-weight:800}.m16-note.admin{background:#f8fafc;color:#5a6473}.m16-note.courier{background:#eef6ff;color:#2457a7}
+  .m16-gift{margin:8px 13px 0;border-radius:11px;padding:9px 10px;font-size:.7rem;line-height:1.7;background:#fff0f5;border:1px solid #f4c8d7;color:#7c2d52}.m16-gift b{display:block;margin-bottom:2px}.m16-note{margin:8px 13px 0;border-radius:10px;padding:8px 9px;font-size:.68rem;line-height:1.6;font-weight:800}.m16-note.admin{background:#f8fafc;color:#5a6473}.m16-note.courier{background:#eef6ff;color:#2457a7}
   .m16-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:11px 13px 13px}
   .m16-actions button,.m16-actions a{border:0;text-decoration:none;border-radius:10px;min-height:42px;font-size:.66rem;font-weight:950;display:flex;align-items:center;justify-content:center;gap:4px;background:#f3f4f6;color:#2c3440}
   .m16-actions .edit{background:#4A1425;color:#fff}.m16-actions .assign{background:#fff0d6;color:#8b5b00}
@@ -6123,7 +6123,10 @@ window.addEventListener('DOMContentLoaded',function(){
   const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const num=v=>Number(v)||0;
   const money=v=>Math.round(num(v)).toLocaleString('ar-EG')+' ج';
-  window.azzamsMobileOrderFilter=window.azzamsMobileOrderFilter||'all';
+  window.azzamsMobileOrderFilter=window.azzamsMobileOrderFilter||'all';window.azzamsMobileSelected=window.azzamsMobileSelected||new Set();
+  window.azzamsToggleMobileSelect=function(k,on){if(on)window.azzamsMobileSelected.add(k);else window.azzamsMobileSelected.delete(k);try{updateSelectedCount()}catch(e){};const n=document.getElementById('m16-selected-count');if(n)n.textContent=window.azzamsMobileSelected.size};
+  window.azzamsSelectVisible=function(on){document.querySelectorAll('#mobile-sales-cards .m16-select-input').forEach(cb=>{cb.checked=!!on;azzamsToggleMobileSelect(cb.value,!!on)});};
+  window.azzamsPrepSelected=function(){const n=document.querySelectorAll('#mobile-sales-cards .m16-select-input:checked').length;if(!n)return alert('حدد أوردر واحد على الأقل.');printPreparationList('#mobile-sales-cards .m16-select-input:checked')};
 
   function itemActual(i){return String(i?.commName||'').trim()}
   function itemStock(i){return String(i?.stockName||i?.name||'').trim()}
@@ -6160,6 +6163,7 @@ window.addEventListener('DOMContentLoaded',function(){
     if(tools)return tools;
     tools=document.createElement('div');tools.id='mobile-orders-tools';
     tools.innerHTML='<div class="m16-summary"><div><span>الأوردرات الظاهرة</span><b id="m16-visible-count">0</b></div><div style="text-align:left"><span>إجمالي المطلوب</span><b id="m16-visible-due">0 ج</b></div></div>'+
+      '<div class="m16-selectbar"><button onclick="azzamsSelectVisible(true)">☑️ تحديد الظاهر</button><button onclick="azzamsSelectVisible(false)">إلغاء</button><button class="prep" onclick="azzamsPrepSelected()">📋 كشف تجهيز <b id="m16-selected-count">0</b></button></div>'+ 
       '<div class="m16-filters">'+
       '<button class="m16-filter active" data-f="all">الكل</button>'+
       '<button class="m16-filter" data-f="prep">تجهيز</button>'+
@@ -6204,7 +6208,7 @@ window.addEventListener('DOMContentLoaded',function(){
     }).sort((a,b)=>num(b[1].timestamp)-num(a[1].timestamp));
 
     const visibleDue=rows.reduce((sum,[,s])=>sum+dueOf(s),0);
-    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);
+    const c=document.getElementById('m16-visible-count'),d=document.getElementById('m16-visible-due');if(c)c.textContent=rows.length;if(d)d.textContent=money(visibleDue);const sc=document.getElementById('m16-selected-count');if(sc)sc.textContent=window.azzamsMobileSelected.size;
 
     box.innerHTML=rows.map(([k,s])=>{
       const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
@@ -6216,17 +6220,18 @@ window.addEventListener('DOMContentLoaded',function(){
         s.courierName?'<span class="m16-chip courier">🛵 '+esc(s.courierName)+(s.courierPostponedUntil?' · ⏰ '+esc(s.courierPostponedUntil):'')+'</span>':'',
         missingActual(s)?'<span class="m16-chip warn">⚠️ ناقص اسم فعلي</span>':''
       ].join('')+labels.map(l=>'<span class="m16-chip label">'+esc(l)+'</span>').join('');
+      const giftMessage=s.giftMessage?'<div class="m16-gift">💌 <b>رسالة الهدية</b><div>'+esc(s.giftMessage)+'</div></div>':'';
       const adminNote=s.notes?'<div class="m16-note admin">🗒️ '+esc(s.notes)+'</div>':'';
       const courierNote=s.courierNote?'<div class="m16-note courier">🛵 '+esc(s.courierNote)+'</div>':'';
       const ph=typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone):s.phone||'';
       return '<article class="m16-card '+cardClass(s.status)+'">'+
         (areaReview?'<div class="m17-area-alert">'+(areaMissing?'⚠️ الأوردر ناقص المنطقة — لازم تتراجع قبل التصدير للشحن':'⚠️ المنطقة محتاجة مراجعة مع قائمة شركة الشحن: '+esc(s.area||''))+'</div>':'')+
-        '<div class="m16-head"><div><div class="m16-customer">'+esc(s.customer||'—')+'</div><div class="m16-ref">#'+esc(k.slice(-6))+' · '+esc(s.date||'')+' · '+esc(ageText(s))+'</div></div><span class="m16-status '+stc+'">'+esc(s.status||'—')+'</span></div>'+
+        '<div class="m16-head"><label class="m16-select"><input class="sale-cb m16-select-input" type="checkbox" value="'+esc(k)+'" data-order-key="'+esc(k)+'" '+(window.azzamsMobileSelected.has(k)?'checked':'')+' onchange="azzamsToggleMobileSelect(\''+k+'\',this.checked)"><span></span></label><div style="flex:1"><div class="m16-customer">'+esc(s.customer||'—')+'</div><div class="m16-ref">#'+esc(k.slice(-6))+' · '+esc(s.date||'')+' · '+esc(ageText(s))+'</div></div><span class="m16-status '+stc+'">'+esc(s.status||'—')+'</span></div>'+
         '<div class="m16-contact"><div class="m16-phone">'+esc(ph)+(s.phone2?' · '+esc(typeof normalizePhoneStr==='function'?normalizePhoneStr(s.phone2):s.phone2):'')+'</div><div class="m16-address">📍 '+esc([s.gov,s.area,s.address].filter(Boolean).join(' — ')||'العنوان غير مسجل')+'</div></div>'+
         '<div class="m16-section"><div class="m16-section-title">المنتجات</div><div class="m16-products">'+productHTML(s)+'</div></div>'+
         '<div class="m16-meta">'+meta+'</div>'+
         '<div class="m16-money"><div><span>قيمة المنتجات</span><b>'+money(num(s.revenue)-num(s.discount))+'</b></div><div><span>مدفوع</span><b>'+money(prepaid)+'</b></div><div class="due"><span>تحصيل</span><b>'+money(due)+'</b></div></div>'+
-        adminNote+courierNote+
+        giftMessage+adminNote+courierNote+
         '<div class="m16-actions">'+
           '<button class="edit" onclick="editSale(\''+k+'\')">✏️ تعديل</button>'+
           '<button class="assign" onclick="assignCourierToOne(\''+k+'\')">🛵 مندوب</button>'+
