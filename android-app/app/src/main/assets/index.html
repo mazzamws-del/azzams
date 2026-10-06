@@ -5987,6 +5987,7 @@ window.addEventListener('DOMContentLoaded',function(){
     const status=document.getElementById('sales-status-filter')?.value||'';
     const shipping=document.getElementById('sales-shipping-filter')?.value||'';
     const active=['قيد التجهيز','متابعة','مع المندوب','استبدال'];
+    for(const k of [...window.azzamsMobileSelected]){const x=(window.salesData||salesData||{})[k];if(!x||!active.includes(x.status))window.azzamsMobileSelected.delete(k)}
     let rows=Object.entries(window.salesData||salesData||{}).filter(([k,s])=>{
       if(!active.includes(s.status))return false;
       const hay=((s.name||'')+' '+(s.customer||'')+' '+(s.phone||'')+' '+(s.address||'')).toLowerCase();
