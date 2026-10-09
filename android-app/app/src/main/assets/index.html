@@ -4838,7 +4838,8 @@ function printConfirmationList(selector) {
    EXPORT SHIPPING EXCEL
 ======================== */
 function exportShippingExcel(selector) {
-    const checked = document.querySelectorAll(selector);
+    const checkedRaw = [...document.querySelectorAll(selector)];
+    const checked = [...new Map(checkedRaw.map(cb=>[cb.value,cb])).values()];
     if (!checked.length) return alert('برجاء تحديد أوردرات أولاً.');
     const bad=[...checked].map(cb=>salesData[cb.value]).filter(x=>!x||!String(x.area||'').trim()||x.areaNeedsReview===true);if(bad.length&&!confirm('⚠️ في '+bad.length+' أوردر المنطقة ناقصة أو محتاجة مراجعة. تكمل التصدير برضه؟'))return;
     let data = [];
