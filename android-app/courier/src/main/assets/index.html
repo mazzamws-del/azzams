@@ -271,7 +271,7 @@ function renderOrders(){
         ${labels.length?'<div class="labels">'+labels.map(l=>'<span class="label">'+esc(l)+'</span>').join('')+'</div>':''}
         ${!done?'<div class="money-row '+(cod<=0?'paid':'')+'"><span>'+(cod<=0?'الأوردر':'تحصل من العميل')+'</span><b>'+(cod<=0?'مدفوع بالكامل':money(cod))+'</b></div>':''}
         <div class="quick"><a href="tel:${esc(phone(s.phone))}">📞 اتصال</a><a href="https://wa.me/${esc(wa(s.phone))}">💬 واتساب</a><a href="geo:0,0?q=${encodeURIComponent(addr)}">📍 خريطة</a></div>
-        ${post}${note}${actions}${result}
+        ${post}${gift}${note}${actions}${result}
       </div>
     </article>`
   }).join('')||'<div class="empty"><div class="emoji">📦</div><b>مفيش أوردرات هنا</b><div style="font-size:12px;margin-top:4px">أي أوردر الإدارة تعينهولك هيظهر تلقائي.</div></div>';
