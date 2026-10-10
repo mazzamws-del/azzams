@@ -5,8 +5,35 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111318">
 <title>Azzams Courier</title>
+
+<script>
+(function(){
+'use strict';
+// Enable only after a staging migration and deployment. No silent fallback to legacy writes.
+window.AZZAMS_SECURE=window.AZZAMS_SECURE||{enabled:false,functionsBase:''};
+const config=window.AZZAMS_SECURE;
+window.azzamsCall=async function(name,data){
+ if(!config.enabled||!/^https:\/\/[a-z0-9.-]+(?:\/[^?#]*)?$/i.test(config.functionsBase))throw Error('الخدمة الآمنة غير مفعّلة؛ راجع إعداد الاتصال');
+ const headers={'Content-Type':'application/json'};const user=firebase.auth().currentUser;if(user)headers.Authorization='Bearer '+await user.getIdToken();
+ const response=await fetch(config.functionsBase.replace(/\/$/,'')+'/'+name,{method:'POST',headers,body:JSON.stringify({data})});
+ let body;try{body=await response.json();}catch(_){throw Error('رد غير صالح من الخدمة');}
+ if(!response.ok||body.error){const e=Error(body.error?.message||'تعذر تنفيذ العملية');e.code=body.error?.status||'UNKNOWN';throw e;}return body.result??body.data;
+};
+let adminGate;
+function gate(){if(adminGate)return adminGate;adminGate=new Promise((resolve,reject)=>{
+ const overlay=document.createElement('div');overlay.id='secure-login';overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:#f3e9dc;display:grid;place-items:center;direction:rtl';
+ const form=document.createElement('form');form.style.cssText='background:white;padding:28px;border-radius:18px;max-width:360px;width:85%';
+ form.innerHTML='<h2>دخول إدارة AZZAMS</h2><label>البريد الإلكتروني<input id="secure-email" type="email" autocomplete="username" required style="width:100%;margin:8px 0"></label><label>كلمة المرور<input id="secure-password" type="password" autocomplete="current-password" required style="width:100%;margin:8px 0"></label><button type="submit">دخول</button><p id="secure-error" role="alert"></p>';overlay.append(form);document.body.append(overlay);
+ form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('button');button.disabled=true;try{await firebase.auth().signInWithEmailAndPassword(document.getElementById('secure-email').value.trim(),document.getElementById('secure-password').value);}catch(err){document.getElementById('secure-error').textContent='تعذر الدخول؛ راجع البريد وكلمة المرور';}finally{button.disabled=false;}};
+ const unsub=firebase.auth().onAuthStateChanged(async user=>{if(!user)return;try{await azzamsCall('validateAdminSession',{});unsub();overlay.remove();resolve();}catch(e){document.getElementById('secure-error').textContent=e.message;await firebase.auth().signOut();}});
+ });return adminGate;}
+window.azzamsReady=function(fn){const run=()=>{if(!config.enabled)return fn();gate().then(fn).catch(e=>alert(e.message));};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();};
+})();
+
+</script>
 <script src="vendor/firebase-app-compat.js"></script>
 <script src="vendor/firebase-database-compat.js"></script>
+<script src="vendor/firebase-auth-compat.js"></script>
 <style>
 :root{--bg:#f4f6f9;--card:#fff;--dark:#111318;--muted:#6b7280;--border:#e5e7eb;--brand:#5b34e6;--success:#059669;--danger:#dc2626;--warn:#d97706;--blue:#2563eb}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Arial,"Tahoma",sans-serif;background:var(--bg);color:#16181d;-webkit-tap-highlight-color:transparent}
@@ -193,17 +220,14 @@ function init(){
     if(typeof firebase==='undefined')throw new Error('Firebase SDK غير موجود');
     firebase.initializeApp(firebaseConfig);db=firebase.database();
     setTimeout(()=>{if(!$('boot').classList.contains('hidden'))bootError('الاتصال بقاعدة البيانات متأخر. اتأكد من الإنترنت وحاول تاني.')},12000);
-    const saved=localStorage.getItem('azzamsCourierId');
-    if(saved){
-      db.ref('couriers/'+saved).once('value').then(s=>{const c=s.val();if(c&&c.active!==false)startCourier(c);else{localStorage.removeItem('azzamsCourierId');show('login')}}).catch(e=>bootError(e.message));
-    }else show('login');
+  localStorage.removeItem('azzamsCourierId');show('login');
   }catch(e){bootError(e.message)}
 }
 window.loginCourier=async function(){
   const ph=phone($('login-phone').value),pin=$('login-pin').value.trim(),err=$('login-error');err.style.display='none';
   if(ph.length<10||pin.length<4){err.textContent='اكتب رقم الموبايل والـPIN.';err.style.display='block';return}
   try{
-    const hash=await sha256(pin),snap=await db.ref('couriers').once('value');let found=null;
+    const hash=await sha256(pin),snap=await db.ref('couriers').orderByChild('phone').equalTo(ph).once('value');let found=null;
     snap.forEach(ch=>{const c=ch.val()||{};if(phone(c.phone)===ph&&c.pinHash===hash&&c.active!==false)found=c});
     if(!found){err.textContent='رقم الموبايل أو PIN غير صحيح، أو الحساب موقوف.';err.style.display='block';return}
     localStorage.setItem('azzamsCourierId',found.id);startCourier(found);
@@ -214,9 +238,9 @@ function startCourier(c){
   if(salesRef)salesRef.off();
   salesRef=db.ref('sales').orderByChild('courierId').equalTo(c.id);
   salesRef.on('value',snap=>{orders=snap.val()||{};renderOrders()},e=>alert('تعذر تحميل الأوردرات: '+e.message));
-  db.ref('couriers/'+c.id).on('value',snap=>{const x=snap.val();if(!x||x.active===false){alert('تم إيقاف حسابك من الإدارة.');logoutCourier()}else currentCourier=x});
+  db.ref((window.AZZAMS_SECURE?.enabled?'staff_profiles/courier/':'couriers/')+c.id).on('value',snap=>{const x=snap.val();if(!x||x.active===false||x.pinHash!==c.pinHash||(window.AZZAMS_SECURE?.enabled&&x.authVersion!==c.authVersion)){alert('تم إيقاف حسابك من الإدارة.');logoutCourier()}else currentCourier=x});
 }
-window.logoutCourier=function(){if(salesRef)salesRef.off();localStorage.removeItem('azzamsCourierId');currentCourier=null;orders={};$('login-pin').value='';show('login')}
+window.logoutCourier=function(){if(currentCourier)db.ref((window.AZZAMS_SECURE?.enabled?'staff_profiles/courier/':'couriers/')+currentCourier.id).off();if(salesRef)salesRef.off();localStorage.removeItem('azzamsCourierId');currentCourier=null;orders={};$('login-pin').value='';show('login')}
 window.setFilter=function(f,b){filter=f;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderOrders()}
 function itemText(s){const a=Array.isArray(s.items)?s.items:[{name:s.name||'منتج',qty:s.qty||1}];return a.map(i=>'<div class="item">'+esc(i.commName||i.name||'منتج')+' ×'+(num(i.qty)||1)+'</div>').join('')}
 function statusData(s,today){
@@ -368,6 +392,117 @@ window.handleAppBack=function(){
   const open=document.querySelector('.modal.open');if(open){open.classList.remove('open');return true}return false
 }
 window.addEventListener('DOMContentLoaded',init);
+</script>
+
+<script>
+(function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.AzzamsFix=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
+'use strict';
+const num=v=>Number(v)||0;
+const clone=v=>JSON.parse(JSON.stringify(v));
+const closed=s=>!!s.courierResult||['تم التوصيل','مرتجع','ملغي'].includes(s.status);
+const current=s=>!closed(s)||!s.courierSettledAt||!!s.returnStockPending;
+const canonical=v=>JSON.stringify(sort(v));
+function sort(v){if(Array.isArray(v))return v.map(sort);if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,sort(v[k])]));return v;}
+function validate(s){
+ if(!/^01[0125]\d{8}$/.test(s.phone||''))throw Error('رقم الموبايل المصري غير صحيح');
+ if(!s.customer||!s.gov||!s.address)throw Error('الاسم والمحافظة والعنوان مطلوبين');
+ for(const k of ['revenue','cogs','shipping','actualShippingCost','discount','prepaidAmount','deposit'])if(s[k]!=null&&(!Number.isFinite(Number(s[k]))||Number(s[k])<0))throw Error('المبالغ يجب أن تكون أرقامًا موجبة أو صفر');
+ const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount);
+ if(total<0)throw Error('الخصم أكبر من إجمالي الأوردر');
+ if(num(s.prepaidAmount??s.deposit)>total)throw Error('المقدم أكبر من إجمالي الأوردر');
+ if(!Array.isArray(s.items)||!s.items.length)throw Error('أضف منتجًا واحدًا على الأقل');
+ s.items.forEach(i=>{if(!i.id||!Number.isInteger(Number(i.qty))||Number(i.qty)<1||!Number.isFinite(Number(i.price))||num(i.price)<0)throw Error('راجع المنتج والكمية والسعر');});
+ return s;
+}
+function components(s,bundles){
+ const out={};for(const i of s.items||[]){const q=Number(i.qty);if(!Number.isInteger(q)||q<1)throw Error('كمية المنتج غير صحيحة');const ids=i.isBundle?(i.stockComponents||bundles[i.id]?.items):[i.id];if(!ids||!ids.length)throw Error('مكونات العرض غير موجودة');for(const id of ids)out[id]=(out[id]||0)+q;}return out;
+}
+function held(s){if(!s)return false;if(typeof s.stockAllocated==='boolean')return s.stockAllocated;if(s.returnStockReceivedAt||s.returnReceived)return false;if(s.returnStockPending)return true;return !['ملغي','مرتجع'].includes(s.status);}
+function adjust(data,map,sign){for(const [id,q]of Object.entries(map)){const p=data.products?.[id];if(!p)throw Error('المنتج غير موجود في المخزن');const n=num(p.qty)+sign*q;if(n<0)throw Error('المخزون لا يكفي: '+(p.name||id));p.qty=n;}}
+function history(s,from,to,ts){s.statusHistory=s.statusHistory||{};s.statusHistory[String(ts)]={from:from||'',to,at:ts};s.statusUpdatedAt=ts;}
+function save(data,sale,expected,ts){
+ validate(sale);const d=clone(data),old=d.sales?.[sale.id];
+ if(expected==null&&old)throw Error('الأوردر موجود بالفعل');
+ if(expected!=null&&(!old||canonical(old)!==canonical(expected)))throw Error('الأوردر اتعدل من جهاز آخر. افتحه من جديد');
+ if(old?.courierSettledAt||old?.courierResult)throw Error('الأوردر مكتمل أو مسوّى؛ لا يمكن تعديل حساباته');
+ if(old&&closed(old))throw Error('الأوردر مغلق؛ راجع المخزون قبل إعادة فتحه');
+ if(old?.courierId&&sale.status!==old.status)throw Error('حدّث نتيجة الأوردر من تطبيق المندوب');
+ if(old&&held(old))adjust(d,old.stockComponents||components(old,d.bundles||{}),+1);
+ const s=clone(sale),map=components(s,d.bundles||{});s.stockAllocated=!['ملغي','مرتجع'].includes(s.status);s.stockComponents=map;
+ if(s.stockAllocated)adjust(d,map,-1);
+ s.updatedAt=ts;s.revision=num(old?.revision)+1;if(!old||s.status!==old.status)history(s,old?.status,s.status,ts);
+ d.sales=d.sales||{};d.sales[s.id]=s;d.customers=d.customers||{};d.customers[s.phone]={...(d.customers[s.phone]||{}),name:s.customer,phone:s.phone,address:s.address,source:s.source||'',date:s.date||''};
+ return d;
+}
+function receiveReturn(data,key,ts){const d=clone(data),s=d.sales?.[key];if(!s?.returnStockPending||s.returnStockReceivedAt)throw Error('المرتجع تم استلامه بالفعل أو غير منتظر');adjust(d,s.stockComponents||components(s,d.bundles||{}),1);Object.assign(s,{returnStockPending:false,returnStockReceivedAt:ts,returnReceived:true,returnReceivedAt:ts,stockAllocated:false,updatedAt:ts,revision:num(s.revision)+1});return d;}
+function balance(s){if(s.courierSettledAt||!s.courierResult)return{due:0,owe:0};const collected=num(s.customerCollectedAmount??s.courierCollectedAmount),fee=num(s.courierShippingFee??(s.courierResult==='cancelled'?0:s.actualShippingCost??s.shipping));return{due:s.storeDueFromCourier!=null?num(s.storeDueFromCourier):Math.max(0,collected-fee),owe:s.courierDueFromStore!=null?num(s.courierDueFromStore):Math.max(0,fee-collected)};}
+function settle(data,cid,expected,id,ts){
+ const d=clone(data),rows=Object.entries(d.sales||{}).filter(([,s])=>s.courierId===cid&&s.courierResult&&!s.courierSettledAt);
+ if(!rows.length)throw Error('لا توجد أوردرات غير مسوّاة');
+ const now=Object.fromEntries(rows);if(canonical(now)!==canonical(expected))throw Error('حساب المندوب اتغير؛ راجع الأرقام وأعد التسوية');
+ let due=0,owe=0;const lines=[];for(const[k,s]of rows){const b=balance(s);due+=b.due;owe+=b.owe;lines.push({orderId:k,result:s.courierResult,storeDue:b.due,courierDue:b.owe,customerCollected:num(s.customerCollectedAmount),courierFee:num(s.courierShippingFee)});s.courierSettledAt=ts;s.courierSettlementId=id;s.updatedAt=ts;s.revision=num(s.revision)+1;}
+ d.courier_settlements=d.courier_settlements||{};d.courier_settlements[id]={id,courierId:cid,courierName:d.couriers?.[cid]?.name||'',orders:rows.map(([k])=>k),ordersCount:rows.length,receivableFromCourier:due,payableToCourier:owe,netBalance:due-owe,lines,timestamp:ts,date:new Date(ts).toLocaleDateString('en-CA',{timeZone:'Africa/Cairo'})};return d;
+}
+return{num,clone,closed,current,canonical,validate,components,held,adjust,history,save,receiveReturn,balance,settle};
+});
+
+</script>
+
+<script>
+(function(){
+const F=AzzamsFix;
+async function tx(key,expected,change){await db.ref('sales/'+key).once('value');let reason='';const r=await db.ref('sales/'+key).transaction(s=>{if(!s)return;if(!currentCourier||s.courierId!==currentCourier.id){reason='الأوردر لم يعد مسندًا لك';return;}if(F.canonical(s)!==F.canonical(expected)){reason='الأوردر اتحدث؛ راجعه وحاول مرة أخرى';return;}if(F.closed(s)||s.courierSettledAt){reason='الأوردر منتهي بالفعل';return;}return change(F.clone(s));},undefined,false);if(!r.committed)throw Error(reason||'لم يتم الحفظ؛ حدّث الأوردر');return r.snapshot.val();}
+async function dispatchOutbox(){if(window.AZZAMS_SECURE?.enabled||!currentCourier)return;for(const[key,s]of Object.entries(orders)){for(const[id,event]of Object.entries(s.courierEventOutbox||{})){if(event.sent)continue;try{await db.ref('courier_events/'+id).set(event.value);await db.ref('sales/'+key+'/courierEventOutbox/'+id+'/sent').set(true);}catch(_){return;}}}}
+function event(s,key,type,extra,ts){const id=db.ref('courier_events').push().key;const value={id,orderId:key,courierId:currentCourier.id,courierName:currentCourier.name,type,timestamp:ts,date:localDate(ts),...extra};s.courierEventOutbox=s.courierEventOutbox||{};s.courierEventOutbox[id]={sent:false,value};return s;}
+saveFinal=async function(key,type,reason,note){
+ if(window._courierSaving)return false;const original=orders[key];if(!original||!currentCourier)return false;
+ if(!['delivered','cancelled','returned_paid_shipping','returned_unpaid_shipping'].includes(type))return false;
+ window._courierSaving=true;const expected=F.clone(original),ts=Date.now();
+ try{const saved=await tx(key,expected,s=>{const f=financeFor(s,type);const status=type==='delivered'?'تم التوصيل':type==='cancelled'?'ملغي':'مرتجع';F.history(s,s.status,status,ts);Object.assign(s,{courierResult:type,courierResultAt:ts,status,customerCollectedAmount:f.collected,courierCollectedAmount:f.collected,courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue,courierCompletedBy:currentCourier.id,courierCompletedByName:currentCourier.name,courierDeliveryState:'completed',updatedAt:ts,revision:F.num(s.revision)+1,returnStockPending:type!=='delivered'});delete s.courierPostponedUntil;delete s.courierPostponeNote;if(note)s.courierNote=note;if(type==='delivered'){s.deliveredAt=ts;}else{s.returnedAt=ts;s.returnReason=reason||'';s.returnType='courier';s.courierShippingPaid=type==='returned_paid_shipping';s.courierShippingCollected=s.courierShippingPaid?f.collected:0;}return event(s,key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''},ts);});orders[key]=saved;renderOrders();toast('تم تسجيل النتيجة');dispatchOutbox();return true;}catch(e){alert(e.message);return false;}finally{window._courierSaving=false;}
+};
+window.savePostpone=async function(){const key=$('postpone-order').value,date=$('postpone-date').value,note=$('postpone-note').value.trim();if(!orders[key]||!date||date<=localDate())return alert('اختار تاريخ بعد النهارده');const expected=F.clone(orders[key]),ts=Date.now();try{orders[key]=await tx(key,expected,s=>{Object.assign(s,{courierDeliveryState:'postponed',courierPostponedUntil:date,courierPostponeNote:note,updatedAt:ts,revision:F.num(s.revision)+1});return event(s,key,'postponed',{until:date,note},ts);});closeModal('postpone-modal');renderOrders();dispatchOutbox();}catch(e){alert(e.message);}};
+window.saveNote=async function(){const key=$('note-order').value,note=$('note-text').value.trim();if(!orders[key])return;const expected=F.clone(orders[key]),ts=Date.now();try{orders[key]=await tx(key,expected,s=>{Object.assign(s,{courierNote:note,courierNoteAt:ts,updatedAt:ts,revision:F.num(s.revision)+1});return event(s,key,'note',{note},ts);});closeModal('note-modal');renderOrders();dispatchOutbox();}catch(e){alert(e.message);}};
+setInterval(dispatchOutbox,15000);window.addEventListener('online',dispatchOutbox);
+})();
+
+</script>
+
+<script>
+(function(){
+'use strict';if(!window.AZZAMS_SECURE?.enabled)return;
+const $=id=>document.getElementById(id),isAdmin=!!$('smart-paste-input'),isMod=!isAdmin&&!!$('save-btn');
+if(isAdmin){
+ window.registerAzzamsFcmToken=async function(token){try{await azzamsCall('registerAdminDevice',{token});localStorage.setItem('azzamsPushRegisteredAt',String(Date.now()));}catch(e){console.warn('لم يتم تسجيل جهاز الإشعارات',e.message);}};
+ azzamsReady(()=>{if(window.AndroidBridge?.requestFcmToken)AndroidBridge.requestFcmToken();});return;
+}
+const role=isMod?'moderator':'courier',cap=isMod?'Moderator':'Courier';
+window['login'+cap]=async function(){const err=$('login-error');err.style.display='none';try{const r=await azzamsCall('staffLogin',{role,phone:phone($('login-phone').value),pin:$('login-pin').value.trim()});await firebase.auth().signInWithCustomToken(r.token);$('login-pin').value='';if(isMod)startModerator(r.profile);else startCourier(r.profile);}catch(e){err.textContent=e.message;err.style.display='block';}};
+const oldLogout=window['logout'+cap];window['logout'+cap]=function(){oldLogout();firebase.auth().signOut().catch(()=>{});};
+if(isMod){
+ let shippingRules={};const originalStart=startModerator;
+ startModerator=function(profile){originalStart(profile);db.ref('shipping_rules').off();db.ref('shipping_rules').on('value',snapshot=>{shippingRules=snapshot.val()||{};updateShipping();});};
+ const modLogout=window.logoutModerator;window.logoutModerator=function(){db.ref('shipping_rules').off();shippingRules={};modLogout();};
+ shipRule=function(g){const r=shippingRules[g];return r?{...r,tier:'server',label:esc(g)}:{tier:'',customer:0,actual:0,label:'أسعار الشحن لم تُحمّل بعد'};};
+ let saving=false;
+ window.saveOrder=async function(){if(saving||!currentModerator)return;if(!cart.length)return alert('أضف منتجًا واحدًا');if(!shippingRules[$('gov').value])return alert('انتظر تحميل تسعير الشحن أو راجع المحافظة');const pendingKey='azzamsPendingCreate-'+currentModerator.id;
+ const payload={customer:$('customer').value.trim(),phone:phone($('phone').value),phone2:phone($('phone2').value),gov:$('gov').value,area:$('area').value.trim(),address:$('address').value.trim(),items:cart.map(x=>({id:x.id,qty:x.qty,commName:x.commName||x.name||''})),freeShipping:$('free-shipping').checked,prepaidAmount:Number($('prepaid').value),discount:Number($('discount').value),labels:[...labels],giftMessage:$('gift-message').value.trim(),notes:$('notes').value.trim(),source:$('source').value};
+ payload.expectedTotal=cart.reduce((n,x)=>n+Number(x.price)*Number(x.qty),0)+(payload.freeShipping?0:Number(shippingRules[payload.gov].customer))-payload.discount;
+ const fingerprint=AzzamsFix.canonical(payload);let pending;try{pending=JSON.parse(localStorage.getItem(pendingKey)||'null');}catch(_){}
+ if(pending&&pending.fingerprint!==fingerprint)return alert('هناك عملية سابقة لم يُحسم حفظها. استعد بياناتها من المسودة وأعد الحفظ قبل تغيير الأوردر.');
+ if(!pending){pending={id:crypto.randomUUID(),fingerprint,payload};localStorage.setItem(pendingKey,JSON.stringify(pending));}
+ saving=true;$('save-btn').disabled=true;try{let result;try{result=await azzamsCall('createModeratorOrder',{...pending.payload,id:pending.id,allowDuplicate:!!pending.allowDuplicate});}catch(e){if(e.message!=='DUPLICATE_ORDER')throw e;if(!confirm('للعميل أوردر مفتوح. تسجل أوردرًا إضافيًا؟')){localStorage.removeItem(pendingKey);return;}pending.allowDuplicate=true;localStorage.setItem(pendingKey,JSON.stringify(pending));result=await azzamsCall('createModeratorOrder',{...pending.payload,id:pending.id,allowDuplicate:true});}
+ localStorage.removeItem(pendingKey);lastSummary='أوردر #'+result.order.id+'\n'+result.order.customer;$('success-ref').textContent='#'+result.order.id;$('success').style.display='block';clearDraft(true);toast('تم حفظ الأوردر والمخزون معًا');}catch(e){const definite=['FAILED_PRECONDITION','INVALID_ARGUMENT','PERMISSION_DENIED','UNAUTHENTICATED'].includes(e.code);if(definite)localStorage.removeItem(pendingKey);alert(e.message+(definite?'':'\nاحتفظ بالبيانات وأعد الحفظ؛ نفس العملية لن تخصم المخزون مرتين.'));}finally{saving=false;$('save-btn').disabled=false;}
+ };
+ window.saveEdit=async function(){const key=$('edit-key').value,s=window.azzamsModEditSnapshot||mySales[key];if(!s)return;try{await azzamsCall('editModeratorOrder',{id:key,revision:s.revision||0,customer:$('edit-customer').value.trim(),phone:phone($('edit-phone').value),phone2:phone($('edit-phone2').value),gov:$('edit-gov').value,area:$('edit-area').value.trim(),address:$('edit-address').value.trim(),freeShipping:$('edit-free-shipping').checked,prepaidAmount:Number($('edit-prepaid').value),discount:Number($('edit-discount').value),giftMessage:$('edit-gift-message').value.trim(),notes:$('edit-notes').value.trim()});closeEdit();toast('تم الحفظ');}catch(e){alert(e.message);}};
+}else{
+ const pendingKey=()=> 'azzamsPendingCourier-'+currentCourier.id;
+ async function action(key,change){if(!currentCourier||!orders[key])throw Error('الأوردر غير متاح');let pending;try{pending=JSON.parse(localStorage.getItem(pendingKey())||'null');}catch(_){}const fingerprint=AzzamsFix.canonical({id:key,...change});if(pending&&pending.fingerprint!==fingerprint)throw Error('أعد محاولة العملية السابقة قبل تسجيل نتيجة مختلفة');if(!pending){pending={fingerprint,payload:{id:key,revision:orders[key].revision||0,operationId:crypto.randomUUID(),...change}};localStorage.setItem(pendingKey(),JSON.stringify(pending));}try{const r=await azzamsCall('courierAction',pending.payload);localStorage.removeItem(pendingKey());orders[key]=r.order;renderOrders();return r.order;}catch(e){if(['FAILED_PRECONDITION','INVALID_ARGUMENT','PERMISSION_DENIED','UNAUTHENTICATED'].includes(e.code))localStorage.removeItem(pendingKey());throw e;}}
+ let saving=false;saveFinal=async function(key,result,reason,note){if(saving)return false;saving=true;try{await action(key,{type:'result',result,reason:reason||'',note:note||''});toast('تم حفظ نتيجة التوصيل');return true;}catch(e){alert(e.message);return false;}finally{saving=false;}};
+ window.savePostpone=async function(){try{await action($('postpone-order').value,{type:'postponed',until:$('postpone-date').value,note:$('postpone-note').value.trim()});closeModal('postpone-modal');}catch(e){alert(e.message);}};
+ window.saveNote=async function(){try{await action($('note-order').value,{type:'note',note:$('note-text').value.trim()});closeModal('note-modal');}catch(e){alert(e.message);}};
+}
+})();
+
 </script>
 </body>
 </html>

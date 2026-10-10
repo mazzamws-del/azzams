@@ -368,7 +368,7 @@ public class MainActivity extends Activity {
         }
 
         webView.evaluateJavascript(
-                "(function(){try{return !!(window.__azzamsHandleAndroidBack && window.__azzamsHandleAndroidBack());}catch(e){return false;}})();",
+                "(function(){try{if(window.handleAppBack && window.handleAppBack())return true;return !!(window.__azzamsHandleAndroidBack && window.__azzamsHandleAndroidBack());}catch(e){return false;}})();",
                 value -> {
                     if ("true".equals(value)) return;
                     performDefaultBack();
