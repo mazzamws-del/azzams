@@ -5163,10 +5163,10 @@ function v6Transition(key,newStatus){
 changeStatus=function(key,newStatus){
   const s=salesData[key];if(!s)return;
   if(newStatus==='مرتجع'&&s.status!=='مرتجع'){document.getElementById('return-sale-id').value=key;document.getElementById('return-type-select').value='courier';applyReturnCostDefault();openModal('overlay-return');return;}
-  v6Transition(key,newStatus).then(()=>{logAction(`تغيير حالة أوردر V6: ${s.customer} ← ${newStatus}`);if(newStatus==='تم التوصيل'){void 0;}}).catch(e=>alert('حصل خطأ: '+e.message));
+  window.v6Transition(key,newStatus).then(()=>{logAction(`تغيير حالة أوردر V6: ${s.customer} ← ${newStatus}`);if(newStatus==='تم التوصيل'){void 0;}}).catch(e=>alert('حصل خطأ: '+e.message));
 };
 bulkChangeStatus=function(selector,selectId){
-  const checked=[...document.querySelectorAll(selector)];if(!checked.length)return alert('حدد أوردرات أولاً.');const st=document.getElementById(selectId||'bulk-status-select').value;if(!st)return alert('اختر الحالة الجديدة.');if(st==='مرتجع')return alert('المرتجع لازم يتسجل لكل أوردر منفصل عشان سبب وتكلفة المرتجع والمخزون يتسجلوا صح.');if(!confirm(`تغيير ${checked.length} أوردر إلى "${st}"؟`))return;Promise.all(checked.map(cb=>v6Transition(cb.value,st))).then(()=>{logAction(`تغيير جماعي V6 لـ ${checked.length} أوردر إلى ${st}`);alert('تم التحديث بنجاح.');}).catch(e=>alert('حصل خطأ: '+e.message));
+  const checked=[...document.querySelectorAll(selector)];if(!checked.length)return alert('حدد أوردرات أولاً.');const st=document.getElementById(selectId||'bulk-status-select').value;if(!st)return alert('اختر الحالة الجديدة.');if(st==='مرتجع')return alert('المرتجع لازم يتسجل لكل أوردر منفصل عشان سبب وتكلفة المرتجع والمخزون يتسجلوا صح.');if(!confirm(`تغيير ${checked.length} أوردر إلى "${st}"؟`))return;Promise.all(checked.map(cb=>window.v6Transition(cb.value,st))).then(()=>{logAction(`تغيير جماعي V6 لـ ${checked.length} أوردر إلى ${st}`);alert('تم التحديث بنجاح.');}).catch(e=>alert('حصل خطأ: '+e.message));
 };
 
 // ---------- Initial V6 paint ----------
@@ -6785,5 +6785,6 @@ if(isMod){
 <script src="thermal-label.js"></script>
 <script src="gift-print.js"></script>
 <script src="desktop-ui.js"></script>
+<script src="mobile-status.js"></script>
 </body>
 </html>
