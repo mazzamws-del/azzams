@@ -103,7 +103,7 @@ exports.monthlyAccountingClose = onSchedule({schedule:'10 0 * * *',timeZone:'Afr
  const ref=getDatabase().ref();
  await ref.once('value');
  await ref.transaction(data=>{
-  if(!data||!data.settings?.accountingStartDate)return;
+  if(!data)return;
   const existing=data.monthly_closures||{},last=Object.values(existing).map(r=>r.to).sort().pop();
   const start=last?finance.addDay(last,1):finance.startDate(data),today=finance.day(Date.now());
   const periods=finance.periods(start,today,data.settings?.monthlyClosingDay);
