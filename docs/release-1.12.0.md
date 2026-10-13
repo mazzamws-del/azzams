@@ -1,0 +1,14 @@
+# 1.12.0 accounting and operations
+
+- Admin desktop and Android share the same accounting module. Money is aggregated in integer piastres. Reports use completion dates, with a visible fallback warning for legacy orders lacking timestamps and a missing-cost warning.
+- Advertising budget is planned only. Actual advertising payments live in expenses with campaignId and count once. Historical budgets are not silently converted to payments.
+- Monthly reports are immutable snapshots; closing never deletes sales or expenses. Configure the initial accounting date and closing day in the monthly screen. Day 0 means calendar month end; days 1–28 are supported. Later changes to closing day apply after the last closed period.
+- Client catches up completed periods while online. Server scheduler source is included but **not deployed in this release session**: no Firebase deployment credentials were available. Deploy only `monthlyAccountingClose` using the project's authenticated Firebase CLI (`firebase deploy --only functions:monthlyAccountingClose --project azzams-system`). It checks at 00:10 Africa/Cairo. This is a monthly close, not daily accounting.
+- Existing archive records remain available read-only. Previously deleted source data cannot be reconstructed from totals. Courier balances on snapshots reflect report-generation time, not reconstructed historical balances.
+- Expense mutations check monthly closures atomically. These are application safeguards, not new Firebase security rules. Old clients must be updated to avoid using obsolete write paths.
+- No-stock-change edits use a transaction on the order, with expected-version checks and unchanged inventory allocation. Inventory-affecting operations retain the existing atomic inventory transaction. Customer directory updates follow order save and report a separate failure if needed.
+- Root subscription removed; operational paths are subscribed separately, activity history is capped at 300, refreshes are coalesced, and inactive pages are no longer all redrawn. The sales collection is still loaded; this is not server pagination.
+- Regions verified against the original workbook: 392 entries / 27 shipping regions, including all 80 Alexandria entries. Cairo B40 onward repeats other cities and is not a separate Cairo list. Alias matching and saved region retention fixed in admin/moderator edit forms.
+- Courier app preserves monetary decimals and records the actual return-shipping loss.
+
+Validation: shared-core tests (minor units, spend, shipping zero, delivery dates, returns, month boundaries and leap years), browser transaction/UI integration on desktop/mobile, concurrent-edit rejection, no duplicate spend or close, retained source data, region aliases. Existing printing/notifications and mobile status flows checked with offline Firebase fixtures. No production records were changed. APKs are CI debug builds; no physical Android-device test was performed.

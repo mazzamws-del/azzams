@@ -186,10 +186,10 @@ function phone(v){v=latinDigits(v).replace(/[^0-9+]/g,'');if(v.startsWith('+20')
 function wa(v){let x=phone(v).replace(/\D/g,'');if(x.startsWith('0'))x='2'+x;return x}
 function localDate(ts){const d=ts?new Date(ts):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return localDate(d)}
-function expectedCOD(s){const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,total-pre)}
+function expectedCOD(s){const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,Math.round((total-pre)*100)/100)}
 function customerShipping(s){return s.freeShipping?0:num(s.shipping)}
 function courierFee(s){return Math.max(0,num(s.actualShippingCost!=null?s.actualShippingCost:s.shipping))}
-function money(v){return Math.round(num(v)).toLocaleString('ar-EG')+' ج'}
+function money(v){return num(v).toLocaleString('ar-EG',{maximumFractionDigits:2})+' ج'}
 function resultText(r){return ({delivered:'✅ تم التسليم',cancelled:'❌ ملغي',returned_paid_shipping:'↩️ مرتجع — دفع الشحن',returned_unpaid_shipping:'↩️ مرتجع — مدفعش الشحن'})[r]||''}
 function financeFor(s,type){
   let collected=0,fee=0;
@@ -197,12 +197,12 @@ function financeFor(s,type){
   if(type==='returned_paid_shipping'){collected=customerShipping(s);fee=courierFee(s)}
   if(type==='returned_unpaid_shipping'){collected=0;fee=courierFee(s)}
   if(type==='cancelled'){collected=0;fee=0}
-  return {collected,fee,storeDue:Math.max(0,collected-fee),courierDue:Math.max(0,fee-collected)}
+  return {collected,fee,storeDue:Math.max(0,Math.round((collected-fee)*100)/100),courierDue:Math.max(0,Math.round((fee-collected)*100)/100)}
 }
 function savedFinance(s){
   const collected=s.customerCollectedAmount!=null?num(s.customerCollectedAmount):num(s.courierCollectedAmount);
   const fee=s.courierShippingFee!=null?num(s.courierShippingFee):(s.courierResult==='cancelled'?0:courierFee(s));
-  return {collected,fee,storeDue:s.storeDueFromCourier!=null?num(s.storeDueFromCourier):Math.max(0,collected-fee),courierDue:s.courierDueFromStore!=null?num(s.courierDueFromStore):Math.max(0,fee-collected)}
+  return {collected,fee,storeDue:s.storeDueFromCourier!=null?num(s.storeDueFromCourier):Math.max(0,Math.round((collected-fee)*100)/100),courierDue:s.courierDueFromStore!=null?num(s.courierDueFromStore):Math.max(0,Math.round((fee-collected)*100)/100)}
 }
 async function sha256(v){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(v)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function show(id){$('boot').classList.add('hidden');$('login').classList.toggle('hidden',id!=='login');$('app').classList.toggle('hidden',id!=='app')}
@@ -435,13 +435,13 @@ function save(data,sale,expected,ts){
  return d;
 }
 function receiveReturn(data,key,ts){const d=clone(data),s=d.sales?.[key];if(!s?.returnStockPending||s.returnStockReceivedAt)throw Error('المرتجع تم استلامه بالفعل أو غير منتظر');adjust(d,s.stockComponents||components(s,d.bundles||{}),1);Object.assign(s,{returnStockPending:false,returnStockReceivedAt:ts,returnReceived:true,returnReceivedAt:ts,stockAllocated:false,updatedAt:ts,revision:num(s.revision)+1});return d;}
-function balance(s){if(s.courierSettledAt||!s.courierResult)return{due:0,owe:0};const collected=num(s.customerCollectedAmount??s.courierCollectedAmount),fee=num(s.courierShippingFee??(s.courierResult==='cancelled'?0:s.actualShippingCost??s.shipping));return{due:s.storeDueFromCourier!=null?num(s.storeDueFromCourier):Math.max(0,collected-fee),owe:s.courierDueFromStore!=null?num(s.courierDueFromStore):Math.max(0,fee-collected)};}
+function balance(s){if(s.courierSettledAt||!s.courierResult)return{due:0,owe:0};const collected=num(s.customerCollectedAmount??s.courierCollectedAmount),fee=num(s.courierShippingFee??(s.courierResult==='cancelled'?0:s.actualShippingCost??s.shipping));return{due:s.storeDueFromCourier!=null?num(s.storeDueFromCourier):Math.max(0,Math.round((collected-fee)*100)/100),owe:s.courierDueFromStore!=null?num(s.courierDueFromStore):Math.max(0,Math.round((fee-collected)*100)/100)};}
 function settle(data,cid,expected,id,ts){
  const d=clone(data),rows=Object.entries(d.sales||{}).filter(([,s])=>s.courierId===cid&&s.courierResult&&!s.courierSettledAt);
  if(!rows.length)throw Error('لا توجد أوردرات غير مسوّاة');
  const now=Object.fromEntries(rows);if(canonical(now)!==canonical(expected))throw Error('حساب المندوب اتغير؛ راجع الأرقام وأعد التسوية');
- let due=0,owe=0;const lines=[];for(const[k,s]of rows){const b=balance(s);due+=b.due;owe+=b.owe;lines.push({orderId:k,result:s.courierResult,storeDue:b.due,courierDue:b.owe,customerCollected:num(s.customerCollectedAmount),courierFee:num(s.courierShippingFee)});s.courierSettledAt=ts;s.courierSettlementId=id;s.updatedAt=ts;s.revision=num(s.revision)+1;}
- d.courier_settlements=d.courier_settlements||{};d.courier_settlements[id]={id,courierId:cid,courierName:d.couriers?.[cid]?.name||'',orders:rows.map(([k])=>k),ordersCount:rows.length,receivableFromCourier:due,payableToCourier:owe,netBalance:due-owe,lines,timestamp:ts,date:new Date(ts).toLocaleDateString('en-CA',{timeZone:'Africa/Cairo'})};return d;
+ let due=0,owe=0;const lines=[];for(const[k,s]of rows){const b=balance(s);due=Math.round((due+b.due)*100)/100;owe=Math.round((owe+b.owe)*100)/100;lines.push({orderId:k,result:s.courierResult,storeDue:b.due,courierDue:b.owe,customerCollected:num(s.customerCollectedAmount),courierFee:num(s.courierShippingFee)});s.courierSettledAt=ts;s.courierSettlementId=id;s.updatedAt=ts;s.revision=num(s.revision)+1;}
+ d.courier_settlements=d.courier_settlements||{};d.courier_settlements[id]={id,courierId:cid,courierName:d.couriers?.[cid]?.name||'',orders:rows.map(([k])=>k),ordersCount:rows.length,receivableFromCourier:due,payableToCourier:owe,netBalance:Math.round((due-owe)*100)/100,lines,timestamp:ts,date:new Date(ts).toLocaleDateString('en-CA',{timeZone:'Africa/Cairo'})};return d;
 }
 return{num,clone,closed,current,canonical,validate,components,held,adjust,history,save,receiveReturn,balance,settle};
 });
@@ -458,7 +458,7 @@ saveFinal=async function(key,type,reason,note){
  if(window._courierSaving)return false;const original=orders[key];if(!original||!currentCourier)return false;
  if(!['delivered','cancelled','returned_paid_shipping','returned_unpaid_shipping'].includes(type))return false;
  window._courierSaving=true;const expected=F.clone(original),ts=Date.now();
- try{const saved=await tx(key,expected,s=>{const f=financeFor(s,type);const status=type==='delivered'?'تم التوصيل':type==='cancelled'?'ملغي':'مرتجع';F.history(s,s.status,status,ts);Object.assign(s,{courierResult:type,courierResultAt:ts,status,customerCollectedAmount:f.collected,courierCollectedAmount:f.collected,courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue,courierCompletedBy:currentCourier.id,courierCompletedByName:currentCourier.name,courierDeliveryState:'completed',updatedAt:ts,revision:F.num(s.revision)+1,returnStockPending:type!=='delivered'});delete s.courierPostponedUntil;delete s.courierPostponeNote;if(note)s.courierNote=note;if(type==='delivered'){s.deliveredAt=ts;}else{s.returnedAt=ts;s.returnReason=reason||'';s.returnType='courier';s.courierShippingPaid=type==='returned_paid_shipping';s.courierShippingCollected=s.courierShippingPaid?f.collected:0;}return event(s,key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''},ts);});orders[key]=saved;renderOrders();toast('تم تسجيل النتيجة');dispatchOutbox();return true;}catch(e){alert(e.message);return false;}finally{window._courierSaving=false;}
+ try{const saved=await tx(key,expected,s=>{const f=financeFor(s,type);const status=type==='delivered'?'تم التوصيل':type==='cancelled'?'ملغي':'مرتجع';F.history(s,s.status,status,ts);Object.assign(s,{courierResult:type,courierResultAt:ts,status,customerCollectedAmount:f.collected,courierCollectedAmount:f.collected,courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue,courierCompletedBy:currentCourier.id,courierCompletedByName:currentCourier.name,courierDeliveryState:'completed',updatedAt:ts,revision:F.num(s.revision)+1,returnStockPending:type!=='delivered'});delete s.courierPostponedUntil;delete s.courierPostponeNote;if(note)s.courierNote=note;if(type==='delivered'){s.deliveredAt=ts;}else{s.returnedAt=ts;s.returnReason=reason||'';s.returnType='courier';s.courierShippingPaid=type==='returned_paid_shipping';s.courierShippingCollected=s.courierShippingPaid?f.collected:0;s.returnCost=Math.round((f.fee-f.collected)*100)/100;}return event(s,key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''},ts);});orders[key]=saved;renderOrders();toast('تم تسجيل النتيجة');dispatchOutbox();return true;}catch(e){alert(e.message);return false;}finally{window._courierSaving=false;}
 };
 window.savePostpone=async function(){const key=$('postpone-order').value,date=$('postpone-date').value,note=$('postpone-note').value.trim();if(!orders[key]||!date||date<=localDate())return alert('اختار تاريخ بعد النهارده');const expected=F.clone(orders[key]),ts=Date.now();try{orders[key]=await tx(key,expected,s=>{Object.assign(s,{courierDeliveryState:'postponed',courierPostponedUntil:date,courierPostponeNote:note,updatedAt:ts,revision:F.num(s.revision)+1});return event(s,key,'postponed',{until:date,note},ts);});closeModal('postpone-modal');renderOrders();dispatchOutbox();}catch(e){alert(e.message);}};
 window.saveNote=async function(){const key=$('note-order').value,note=$('note-text').value.trim();if(!orders[key])return;const expected=F.clone(orders[key]),ts=Date.now();try{orders[key]=await tx(key,expected,s=>{Object.assign(s,{courierNote:note,courierNoteAt:ts,updatedAt:ts,revision:F.num(s.revision)+1});return event(s,key,'note',{note},ts);});closeModal('note-modal');renderOrders();dispatchOutbox();}catch(e){alert(e.message);}};

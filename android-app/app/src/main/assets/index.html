@@ -2157,48 +2157,17 @@ function startSystem() {
         }
     }, 12000);
 
-    db.ref('/').on('value', snap => {
-        firstLoadDone = true;
-        clearTimeout(loadingTimeout);
-        const data = snap.val() || {};
-        productsData = data.products || {};
-        bundlesData = data.bundles || {};
-        salesData = data.sales || {};
-        expensesData = data.expenses || {};
-        customersData = data.customers || {};
-        activityLogsData = data.activity_logs || {};
-        campaignsData = data.campaigns || {};
-        reconciliationsData = data.reconciliations || {};
-        archivesData.daily = data.daily_archives || {};
-        archivesData.monthly = data.monthly_archives || {};
-        archivesData.yearly = data.yearly_archives || {};
-        settings = { ...defaultSettings, ...(data.settings || {}) };
+    const received=new Set();let redraw;
+    const paths=['products','bundles','sales','expenses','customers','activity_logs','campaigns','reconciliations','settings'];
+    const assign={products:v=>productsData=v,bundles:v=>bundlesData=v,sales:v=>salesData=v,expenses:v=>expensesData=v,customers:v=>customersData=v,activity_logs:v=>activityLogsData=v,campaigns:v=>campaignsData=v,reconciliations:v=>reconciliationsData=v,settings:v=>{settings={...defaultSettings,...v};applyBrandColor();}};
+    paths.forEach(path=>{let ref=db.ref(path);if(path==='activity_logs')ref=ref.limitToLast(300);ref.on('value',snap=>{
+        assign[path](snap.val()||{});received.add(path);
+        if(received.size!==paths.length)return;
+        if(!firstLoadDone){updateInventoryUI();checkCampaignsAutoClose();}firstLoadDone=true;clearTimeout(loadingTimeout);if(loadingEl)loadingEl.style.display='none';
+        if(!selectedDashDate){selectedDashDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());document.getElementById('dash-date-filter').value=selectedDashDate;}
+        clearTimeout(redraw);redraw=setTimeout(()=>{updateUI();if(window.azzamsMonthlyCatchup)azzamsMonthlyCatchup();},80);
+    },err=>{clearTimeout(loadingTimeout);if(loadingEl)loadingEl.textContent='تعذر تحميل البيانات: '+err.message;});});
 
-        applyBrandColor();
-
-        if (!selectedDashDate) {
-            selectedDashDate = new Date().toISOString().split('T')[0];
-            document.getElementById('dash-date-filter').value = selectedDashDate;
-        }
-
-        if (!autoCloseChecked) { autoCloseChecked = true; autoClosePreviousMonth(); }
-        checkCampaignsAutoClose();
-
-        if (loadingEl) loadingEl.style.display = 'none';
-        updateUI();
-    }, err => {
-        firstLoadDone = true;
-        clearTimeout(loadingTimeout);
-        console.error('Firebase load failed:', err);
-        if (loadingEl) {
-            loadingEl.innerHTML = `<div style="text-align:center;font-family:Cairo,sans-serif;padding:24px;max-width:440px;">
-                <div style="font-size:2rem;margin-bottom:10px;">⚠️</div>
-                <div style="font-size:1.05rem;font-weight:900;color:#171a21;">تعذر تحميل بيانات Azzams</div>
-                <div style="font-size:.8rem;color:#677184;margin:8px 0 14px;line-height:1.8;">${String(err && err.message ? err.message : err)}</div>
-                <button onclick="location.reload()" style="padding:10px 22px;background:#5b34e6;color:white;border:0;border-radius:9px;font-family:inherit;font-weight:900;cursor:pointer;">إعادة المحاولة</button>
-            </div>`;
-        }
-    });
 }
 
 function applyBrandColor() {
@@ -2237,7 +2206,8 @@ function showSection(id, btnEl) {
     document.getElementById('topbar-title').innerText = titles[id] || '';
     closeSidebar();
 
-    if (id === 'archive') renderArchive('daily');
+    if (id === 'archive' && window.azzamsMonthlyView) azzamsMonthlyView();
+    updateUI();
     if (id === 'settings') loadSettingsForm();
     if (id === 'new-order') {
         document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
@@ -2361,7 +2331,7 @@ function renderProfitBreakdown(monthStr, deliveredArr, expArr, netProfit) {
     let returnCostCourier = monthReturns.filter(s => s.returnType !== 'customer').reduce((s, o) => s + (o.returnCost || 0), 0);
     let returnCostCustomer = monthReturns.filter(s => s.returnType === 'customer').reduce((s, o) => s + (o.returnCost || 0), 0);
 
-    let monthAdSpend = Object.values(campaignsData).filter(c => c.status === 'closed' && (c.closedDate || '').startsWith(monthStr)).reduce((s, c) => s + (c.budget || 0), 0);
+    let monthAdSpend = Object.values(expensesData).filter(e=>e.campaignId&&(e.date||'').startsWith(monthStr)).reduce((sum,e)=>sum+Number(e.amount||0),0);
 
     const item = (label, val, color) => `
         <div class="form-card" style="padding:10px;text-align:center;">
@@ -2377,7 +2347,7 @@ function renderProfitBreakdown(monthStr, deliveredArr, expArr, netProfit) {
         item('↩️ خسارة مرتجع (شحن)', -returnCostCourier, 'var(--danger)') +
         item('↩️ خسارة مرتجع (عميل)', -returnCostCustomer, 'var(--danger)') +
         item('🧾 مصاريف تشغيل', -expenses, 'var(--danger)') +
-        item('🎯 ميزانية إعلانات الشهر', -monthAdSpend, 'var(--warning)') +
+        item('🎯 صرف إعلاني ضمن المصروفات', -monthAdSpend, 'var(--warning)') +
         item('✅ صافي الربح', netProfit, netProfit >= 0 ? 'var(--success)' : 'var(--danger)');
 }
 
@@ -2676,17 +2646,10 @@ function updateCharts(monthSales, monthExp) {
    MAIN UI UPDATE
 ======================== */
 function updateUI() {
-    updateDashboard();
-    updateInventoryUI();
-    updateSalesUI();
-    updateExpensesUI();
-    updateCustomersUI();
-    updateActivityUI();
-    updateSettingsUI();
-    updateReturnsUI();
-    updateLeaderboard();
-    updateCampaignsUI();
-    populateCampaignSelect();
+    const id=document.querySelector('.section.active')?.id.replace('section-','')||'dashboard';
+    const renders={dashboard:updateDashboard,inventory:updateInventoryUI,sales:updateSalesUI,delivered:updateSalesUI,expenses:updateExpensesUI,customers:updateCustomersUI,activity:updateActivityUI,settings:updateSettingsUI,returns:updateReturnsUI,leaderboard:updateLeaderboard,campaigns:updateCampaignsUI};
+    if(renders[id])renders[id]();
+    if(id==='new-order'){populateCampaignSelect();const list=document.getElementById('sale-product-list');list.replaceChildren(...[...Object.values(productsData),...Object.values(bundlesData)].map(p=>new Option(p.name,p.name)));}
 }
 
 /* ========================
@@ -3213,7 +3176,7 @@ function populateAreaSelect(preserveValue) {
     let areaInput  = document.getElementById('sale-area');
     const keep = preserveValue !== undefined ? preserveValue : (areaInput.value || '');
     areaSelect.innerHTML = '<option value="">-- اختر المنطقة --</option>';
-    let areas = [...new Set(CITY_AREAS[cityName] || [])];
+    let areas = [...new Set(azzamsAreasFor(cityName))];
     if (areas.length > 0) {
         areas.forEach(area => {
             areaSelect.innerHTML += `<option value="${area}">${area}</option>`;
@@ -3221,7 +3184,7 @@ function populateAreaSelect(preserveValue) {
         areaSelect.style.display = 'block';
         areaSearch.style.display = 'block';
         areaSearch.value = '';
-        const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));if(hit){areaSelect.value=hit;areaInput.value=hit}else if(preserveValue!==undefined){areaInput.value=keep;}
+        const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));if(hit){areaSelect.value=hit;areaInput.value=hit}else if(keep){areaSelect.add(new Option(keep+' (مسجلة سابقًا)',keep));areaSelect.value=keep;areaInput.value=keep;}
     } else {
         areaSelect.style.display = 'none';
         areaSearch.style.display = 'none';
@@ -3230,10 +3193,10 @@ function populateAreaSelect(preserveValue) {
 
 function filterAreaOptions(query) {
     let cityName = document.getElementById('sale-gov').value;
-    let allAreas = [...new Set(CITY_AREAS[cityName] || [])];
+    let allAreas = [...new Set(azzamsAreasFor(cityName))];
     let areaSelect = document.getElementById('sale-area-select');
     let q = query.trim();
-    let filtered = q ? allAreas.filter(a => a.includes(q)) : allAreas;
+    let filtered = q ? allAreas.filter(a => shippingSheetNorm(a).includes(shippingSheetNorm(q))) : allAreas;
     areaSelect.innerHTML = '<option value="">-- اختر المنطقة --</option>';
     filtered.forEach(area => {
         areaSelect.innerHTML += `<option value="${area}">${area}</option>`;
@@ -3686,31 +3649,7 @@ function createCampaign() {
     });
 }
 
-function getCampaignStats(campaignId, campaign) {
-    let orders = Object.values(salesData).filter(s => s.campaignId === campaignId);
-    let delivered = orders.filter(s => s.status === 'تم التوصيل');
-    let returned = orders.filter(s => s.status === 'مرتجع' || s.status === 'ملغي');
-    let pending = orders.filter(s => !['تم التوصيل', 'مرتجع', 'ملغي'].includes(s.status));
-
-    // إيراد وربح المنتج الصافي من الأوردرات المسلمة فقط (نفس منطق الداشبورد)
-    let revenue = delivered.reduce((sum, s) => sum + (s.revenue || 0) - (s.discount || 0), 0);
-    let cogs = delivered.reduce((sum, s) => sum + (s.cogs || 0), 0);
-    // فرق الشحن اللي دفعه المتجر من جيبه على كل أوردرات الحملة (مسلمة كانت أو لأ، لأنه اتصرف فعلاً)
-    let shipSubsidy = orders.reduce((sum, s) => {
-        let realShip = (s.actualShippingCost || s.shipping || 0);
-        let customerPaid = s.freeShipping ? 0 : (s.shipping || 0);
-        return sum + Math.max(0, realShip - customerPaid);
-    }, 0);
-    // تكلفة المرتجعات (شركة الشحن أو العميل) على أوردرات الحملة
-    let returnCost = orders.reduce((sum, s) => sum + (s.returnCost || 0), 0);
-
-    let netProfit = revenue - cogs - shipSubsidy - returnCost - (campaign.budget || 0);
-    let returnRate = orders.length ? Math.round((returned.length / orders.length) * 100) : 0;
-    let cpa = orders.length ? Math.round((campaign.budget || 0) / orders.length) : 0;
-    let roas = (campaign.budget || 0) > 0 ? (revenue / campaign.budget).toFixed(2) : '—';
-
-    return { orders, delivered, returned, pending, revenue, cogs, shipSubsidy, returnCost, netProfit, returnRate, cpa, roas };
-}
+function getCampaignStats(campaignId,campaign){return AzzamsFinance.campaign({sales:salesData,expenses:expensesData,settings},campaignId);}
 
 function updateCampaignsUI() {
     populateCampaignProductSelect();
@@ -3891,7 +3830,7 @@ function updateExpensesUI() {
                 <td><span class="badge badge-danger">${e.amount} ج.م</span></td>
                 <td style="color:var(--text-muted);font-size:0.82rem;">${e.date || '—'}</td>
                 <td style="text-align:center;">
-                    <button class="btn btn-danger btn-icon-sm" onclick="db.ref('expenses/${key}').remove()">🗑️</button>
+                    <button class="btn btn-danger btn-icon-sm" onclick="deleteExpense('${key}')">🗑️</button>
                 </td>
             </tr>`
         ).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">لا توجد مصروفات</td></tr>';
@@ -4137,143 +4076,11 @@ function cleanupPhoneNumbers() {
 ======================== */
 function openDailyCloseModal() {
     previewClose();
-    openModal('overlay-daily-close');
+    return window.azzamsMonthlyView?.();
 }
-function previewClose() {
-    const type = document.getElementById('close-type').value;
-    const baseDate = selectedDashDate;
-    let filterStr = baseDate;
-    let titleLabel = 'تاريخ التقفيل اليومي';
-    if (type === 'monthly') { filterStr = baseDate.substring(0, 7); titleLabel = 'تقفيل شهري'; }
-    else if (type === 'yearly') { filterStr = baseDate.substring(0, 4); titleLabel = 'تقفيل سنوي'; }
+function previewClose(){return window.azzamsMonthlyView?.();}
 
-    // التقفيل يحسب المسلمة فقط — دي الفلوس اللي وصلت فعلاً
-    const ACTIVE_STATUSES = ['قيد التجهيز','متابعة','مع المندوب','استبدال'];
-    const tSales = Object.values(salesData).filter(s => s.date?.startsWith(filterStr) && s.status === 'تم التوصيل');
-    const tAllValid = Object.values(salesData).filter(s => s.date?.startsWith(filterStr) && s.status !== 'مرتجع' && s.status !== 'ملغي');
-    const tExp = Object.values(expensesData).filter(e => e.date?.startsWith(filterStr));
-    const tReturns = Object.values(salesData).filter(s => s.status === 'مرتجع' && s.date?.startsWith(filterStr));
-
-    let rev = 0, cogs = 0, disc = 0, freeShip = 0, freeWrap = 0;
-    tSales.forEach(s => {
-        rev += s.revenue || 0;  // إيراد المنتج فقط — الشحن مش بيدخل الخزنة
-        cogs += s.cogs || 0;
-        disc += s.discount || 0;
-        let realShip = (s.actualShippingCost || s.shipping || 0);
-        let customerPaidShip = s.freeShipping ? 0 : (s.shipping || 0);
-        freeShip += Math.max(0, realShip - customerPaidShip);
-        if (s.freeWrapping) freeWrap += settings.giftWrapCost || 15;
-    });
-    let exp = tExp.reduce((s, e) => s + (e.amount || 0), 0);
-
-    let returnCostCourier = tReturns.filter(s => s.returnType !== 'customer').reduce((s, o) => s + (o.returnCost || 0), 0);
-    let returnCostCustomer = tReturns.filter(s => s.returnType === 'customer').reduce((s, o) => s + (o.returnCost || 0), 0);
-    let returnCostTotal = returnCostCourier + returnCostCustomer;
-
-    // ميزانية الحملات المقفولة خلال الفترة دي (بتخصم في التقفيل الشهري فقط)
-    let closedCampaigns = type === 'monthly'
-        ? Object.entries(campaignsData).filter(([, c]) => c.status === 'closed' && (c.closedDate || '').startsWith(filterStr))
-        : [];
-    let campaignsSpend = closedCampaigns.reduce((s, [, c]) => s + (c.budget || 0), 0);
-    let campaignsOrders = closedCampaigns.reduce((s, [, c]) => s + (c.finalStats?.orders || 0), 0);
-    let campaignsReturned = closedCampaigns.reduce((s, [, c]) => s + (c.finalStats?.returned || 0), 0);
-
-    let deductions = disc + freeShip + freeWrap + returnCostTotal + campaignsSpend;
-    let net = rev - cogs - exp - deductions;
-    let pendingCount = tAllValid.filter(s => ACTIVE_STATUSES.includes(s.status)).length;
-
-    let campaignsBlock = type === 'monthly' ? `
-        <hr style="border-color:var(--border);margin:12px 0;">
-        <div style="font-weight:800;margin-bottom:8px;">🎯 حملات اتقفلت الشهر ده: ${closedCampaigns.length}</div>
-        ${closedCampaigns.length ? closedCampaigns.map(([, c]) => `
-            <div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:5px 0;border-bottom:1px dashed var(--border);">
-                <span>${c.name} (${c.platform})</span>
-                <span style="font-weight:700;color:${(c.finalStats?.netProfit||0) >= 0 ? 'var(--success)' : 'var(--danger)'};">${(c.finalStats?.netProfit||0).toLocaleString('ar-EG')} ج.م</span>
-            </div>`).join('') : '<div style="font-size:0.82rem;color:var(--text-muted);">لا توجد حملات مقفولة هذا الشهر</div>'}
-        <div style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;">إجمالي أوردرات الحملات: ${campaignsOrders} — مرتجع: ${campaignsReturned}</div>
-    ` : '';
-
-    document.getElementById('daily-close-content').innerHTML = `
-        <div style="background:var(--bg-elevated);padding:18px;border-radius:12px;margin-bottom:16px;">
-            <p style="text-align:center;font-weight:700;margin-bottom:12px;color:var(--text-muted);">${titleLabel}: <strong style="color:var(--text);">${filterStr}</strong></p>
-            ${pendingCount > 0 ? `<div style="background:rgba(245,158,11,0.1);border:1px solid var(--warning);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.85rem;color:var(--warning);">⚠️ يوجد <strong>${pendingCount}</strong> أوردر لم يُسلم بعد — التقفيل يشمل المسلمة فقط</div>` : ''}
-            <hr style="border-color:var(--border);margin:12px 0;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.9rem;">
-                <div>إيراد المنتجات (مسلم):</div><div style="font-weight:800;text-align:left;">${rev.toLocaleString('ar-EG')} ج.م</div>
-                <div>تكلفة البضاعة (COGS):</div><div style="color:var(--danger);text-align:left;">${cogs.toLocaleString('ar-EG')} ج.م</div>
-                <div>المصروفات الخارجية:</div><div style="color:var(--danger);text-align:left;">${exp.toLocaleString('ar-EG')} ج.م</div>
-                <div>فرق شحن من جيبك:</div><div style="color:var(--danger);text-align:left;">${freeShip.toLocaleString('ar-EG')} ج.م</div>
-                <div>خسارة مرتجعات (${tReturns.length} مرتجع — شحن/عميل):</div><div style="color:var(--danger);text-align:left;">${returnCostCourier.toLocaleString('ar-EG')} / ${returnCostCustomer.toLocaleString('ar-EG')} ج.م</div>
-                <div>خصومات وتغليف:</div><div style="color:var(--warning);text-align:left;">${(disc+freeWrap).toLocaleString('ar-EG')} ج.م</div>
-                ${type === 'monthly' ? `<div>ميزانية الحملات المقفولة:</div><div style="color:var(--warning);text-align:left;">${campaignsSpend.toLocaleString('ar-EG')} ج.م</div>` : ''}
-            </div>
-            ${campaignsBlock}
-            <div style="background:${net >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'};border:1px solid ${net >= 0 ? 'var(--success)' : 'var(--danger)'};border-radius:10px;padding:16px;text-align:center;margin-top:14px;">
-                <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px;">💰 صافي الربح الفعلي (من المسلم فقط)</div>
-                <div style="font-size:2rem;font-weight:900;color:${net >= 0 ? 'var(--success)' : 'var(--danger)'};">${net.toLocaleString('ar-EG')} ج.م</div>
-            </div>
-        </div>
-        <button class="btn btn-success" style="width:100%;padding:14px;font-size:1.05rem;" onclick="archiveCloseData('${type}',${rev},${cogs},${exp},${net},'${filterStr}',${deductions})">💾 اعتماد وحفظ التقفيل</button>
-    `;
-}
-
-function archiveCloseData(type, rev, cogs, exp, profit, dateStr, deductions) {
-    if (!confirm('⚠️ تأكيد اعتماد التقفيل المالي!\n\nسيتم:\n✅ حفظ التقفيل في الأرشيف\n🗑️ حذف الأوردرات المسلمة لهذه الفترة\n🗑️ حذف المصروفات المسجلة لهذه الفترة\n\nهل أنت متأكد؟ لا يمكن التراجع عن الحذف.')) return;
-
-    // أولاً: احفظ التقفيل في الأرشيف
-    db.ref(`${type}_archives/${dateStr}`).set({
-        date: dateStr, revenue: rev, cogs, expenses: exp,
-        deductions, netProfit: profit, timestamp: Date.now()
-    }).then(() => {
-
-        // ثانياً: احسب الأوردرات والمصروفات اللي هتتحذف
-        const deliveredSaleKeys = Object.keys(salesData).filter(k =>
-            salesData[k].date?.startsWith(dateStr) && salesData[k].status === 'تم التوصيل'
-        );
-        const expenseKeys = Object.keys(expensesData).filter(k =>
-            expensesData[k].date?.startsWith(dateStr)
-        );
-
-        // ثالثاً: احفظ snapshot تفصيلي في الأرشيف (الأوردرات والمصروفات)
-        const archivedSales = deliveredSaleKeys.map(k => salesData[k]);
-        const archivedExpenses = expenseKeys.map(k => expensesData[k]);
-
-        const snapshotRef = db.ref(`${type}_snapshots/${dateStr}`);
-        snapshotRef.set({
-            date: dateStr,
-            closedAt: Date.now(),
-            sales: archivedSales,
-            expenses: archivedExpenses
-        }).then(() => {
-
-            // رابعاً: احذف الأوردرات المسلمة من Firebase
-            const saleDeletePromises = deliveredSaleKeys.map(k => db.ref('sales/' + k).remove());
-
-            // خامساً: احذف المصروفات من Firebase
-            const expDeletePromises = expenseKeys.map(k => db.ref('expenses/' + k).remove());
-
-            Promise.all([...saleDeletePromises, ...expDeletePromises]).then(() => {
-                logAction(`اعتماد وتقفيل مالي (${type}) للفترة: ${dateStr} — حذف ${deliveredSaleKeys.length} أوردر و${expenseKeys.length} مصروف`);
-
-                // سادساً: صفر صفحة التقفيل وأغلق الـ modal
-                document.getElementById('daily-close-content').innerHTML = `
-                    <div style="background:rgba(16,185,129,0.1);border:1px solid var(--success);border-radius:14px;padding:28px;text-align:center;">
-                        <div style="font-size:2.5rem;margin-bottom:10px;">✅</div>
-                        <div style="font-size:1.1rem;font-weight:900;color:var(--success);margin-bottom:6px;">تم اعتماد التقفيل بنجاح</div>
-                        <div style="font-size:0.88rem;color:var(--text-muted);">الفترة: <strong style="color:var(--text);">${dateStr}</strong></div>
-                        <div style="margin-top:12px;font-size:0.85rem;color:var(--text-dim);">
-                            تم أرشفة ${deliveredSaleKeys.length} أوردر • ${expenseKeys.length} مصروف
-                        </div>
-                        <button class="btn btn-ghost" style="margin-top:18px;" onclick="closeModal('overlay-daily-close');renderArchive('${type}')">📅 عرض الأرشيف</button>
-                    </div>
-                `;
-
-                closeModal('overlay-daily-close');
-                pushNotification(`✅ تم التقفيل المالي للفترة: ${dateStr} — تم حذف ${deliveredSaleKeys.length} أوردر و${expenseKeys.length} مصروف`);
-            });
-        });
-    });
-}
+function archiveCloseData(){return window.azzamsMonthlyView?.();}
 
 function openArchiveModal() {
     renderArchiveModal('daily');
@@ -4389,31 +4196,7 @@ function deleteArchive(type, dateStr) {
     }
 }
 
-function autoClosePreviousMonth() {
-    let now = new Date(); now.setMonth(now.getMonth() - 1);
-    let prevMonthStr = now.toISOString().substring(0, 7);
-    if (!archivesData.monthly || !archivesData.monthly[prevMonthStr]) {
-        const tSales = Object.values(salesData).filter(s => s.date?.startsWith(prevMonthStr) && s.status === 'تم التوصيل');
-        const tExp = Object.values(expensesData).filter(e => e.date?.startsWith(prevMonthStr));
-        if (tSales.length > 0) {
-            let rev = 0, cogs = 0, disc = 0, freeShip = 0, freeWrap = 0;
-            tSales.forEach(s => {
-                rev += s.revenue || 0;
-                cogs += s.cogs || 0;
-                disc += s.discount || 0;
-                if (s.freeShipping) freeShip += s.actualShippingCost || 0;
-                if (s.freeWrapping) freeWrap += settings.giftWrapCost || 15;
-            });
-            let exp = tExp.reduce((s, e) => s + (e.amount || 0), 0);
-            let deductions = disc + freeShip + freeWrap;
-            let net = rev - cogs - exp - deductions;
-            db.ref('monthly_archives/' + prevMonthStr).set({ date: prevMonthStr, revenue: rev, cogs, expenses: exp, deductions, netProfit: net, timestamp: Date.now() }).then(() => {
-                logAction(`تقفيل أوتوماتيكي لشهر: ${prevMonthStr}`);
-                pushNotification(`تم التقفيل الأوتوماتيكي لشهر ${prevMonthStr} 📊`);
-            });
-        }
-    }
-}
+function autoClosePreviousMonth(){return window.azzamsMonthlyCatchup?.();}
 
 /* ========================
    PRINT: DIGITAL INVOICE
@@ -4902,7 +4685,9 @@ function exportData() {
 /* ========================
    CITY → AREAS DATA
 ======================== */
-const CITY_AREAS={"القاهرة":["الأميرية","البساتين","التجمع الاول","الجمالية الحسين القاهرة","الخليفة","الدرب الأحمر","الرحاب","الزاوية الحمراء","الزمالك","الزيتون","السلام","السيدة زينب","الشرابية","العباسية","ؤ","المطرية","المعادي","المقطم","المنيل","الوايلي","بهتيم","جاردن سيتي","جسر السويس","حدائق القبة","دار السلام المعادي","شبرا الخيمة","شبرا مصر","شيراتون","طرة","عزبة النخل","عين شمس","مدينة نصر","مسطرد","مصر الجديدة","مصر القديمة","وسط البلد","يهتيم"],"الجيزة":["ارض اللواء","الدقي","العجوزة","العمرانية","المهندسين","الهرم","الوراق","امبابة","بولاق","بولاق الدكرور","فيصل","السيدة عائشة","الهضبة الوسطي","العتبة","جزيرة الدهب","صفط اللبن"],"اطراف القاهرة":["15 مايو","التبين","التجمع الثالث","التجمع الخامس","الخصوص","الشروق","العاصمة الادارية","العبور","القطامية","بدر القاهرة","حلوان","مدينة المستقبل","مدينتي"],"اطراف الجيزة":["طريق الواحات","6 اكتوبر","ابو النمرس","ابو رواش","البدرشين","الحوامدية","الشيخ زايد الجيزة","المنيب","أوسيم","حدائق الاهرام","كرداسة","جزيرة الدهب","دجلة بالمز","ساقية مكي","ميدان الجيزة","البحر الاعظم","مول العرب 6 اكتوبر","القرية الذكية - زايد","الحي المتميز 6 اكتوبر","مساكن دهشور 6 اكتوبر","دريم لاند","مدينة الفردوس"],"الاسكندرية":["6 اكتوبر العجمي","ابو قير","ابيس","ابيس 2","ابيس 8","الابراهيمية - الاسكندرية","الازاريطة","البيطاش","الجمرك","الحضرة","الدخيلة","الراس السوداء","الرمل","الساعة","السلسلة","السيوف","الشاطبي","العامرية","العجمي","العصافرة","العطارين","العماروة","العوايد","الفلكي","القباري","اللبان","المعمورة","المكس","المنتزة","المندرة","المنشية","الهانوفيل","الورديان","باب شرق","باكوس","بحري","برج العرب","بوكلي","جاناكليس","جليم","حجر النواتية","خورشيد","راس التين","رشدي","زوايدة","زيزينيا","سابا باشا","سان استيفانو","سبورتينج","سكينة","سموحة","سيدي بشر","سيدي جابر","شارع 45","عزبة سعد","غيط العنب","فلمنج","ڤيكتوريا","قرية العزة","قرية النهضة","قرية الوفاء والامل","قرية بغداد","قرية بنجر السكر","قرية بهيج","كامب شيرار","كرموز","كفر عبدة","كليوباترا","كوم الدكة","كوم الشقافة","كينج ماريوت","لوران","محرم بك","محطة الرمل","مرغم","ميامي","مينا البصل","طوسون","المعمورة الشاطي","الطابية خورشيد اسكندرية"],"القليوبية":["ابو زعبل","الجبل الاصفر","الخانكة","القلج","القناطر الخيرية","باسوس","بنها","شبين القناطر","طنط الجزيرة","طوخ","قليوب البلد","كفر شكر","مركز قها","منشية القناطر","ميت حلفا","ميت نما"],"الاسماعيلية":["ابوصوير","الاسماعيلية","التل الكبير","القصاصين","القنطرة شرق","القنطرة غرب","فايد"],"الاقصر":["مدينة الاقصر","مدينة الاقصر الجديدة","مدينة طيبة الجديدة","مركز ارمنت","مركز اسنا","مركز البياضية","مركز الزينية","مركز الطود","مركز القرنة"],"البحر_الاحمر":["الجونة","الغردقة","القصير","راس غارب","سفاجا","سهل حشيش","شلاتين","مرسي علم","مكادي"],"البحيرة":["ابو المطامير","ابو حمص","ادكو","الدلنجات","الرحمانية","المحمودية","النوبارية الجديدة","ايتاي البارود","حوش عيسي","دمنهور","رشيد","شبراخيت","كفر الدوار","كوم حمادة","مدينة بدر البحيرة","وادي النطرون"],"الدقهلية":["اجا","الجمالية الدقهلية","السنبلاوين","الكردي","المطرية - الدقهلية","المنزلة","المنصورة","بلقاس","بني عبيد","تمي الامديد","جمصة","دكرنس","شربين","طلخا","منية النصر","ميت سلسيل","ميت غمر","نبروة"],"السويس":["حي الاربعين","حي الجناين","حي السويس","حي عتاقة","حي فيصل"],"الشرقية":["ابو كبير","ابو حماد","الابراهيمية - الشرقية","الحسينية","الزقازيق","الصالحية","العاشر من رمضان","القرين","القنايات","اولاد صقر","بلبيس","ديرب نجم","فاقوس","مشتول السوق","منيا القمح","ههيا"],"الغربية":["السنطة","المحلة الكبري","بسيون","زفتي","سمنود","طنطا","قطور","كفر الزيات"],"الفيوم":["ابشواي","اطسا","الفيوم","سنورس","طامية","يوسف الصديق"],"المنوفية":["السادات","الباجور","الشهداء","أشمون","بركة السبع","تلا","سرس الليان","شبين الكوم","قويسنا","منوف"],"المنيا":["ابو قرقاص","العدوة","المنيا","المنيا الجديدة","بني مزار","دير مواس","سمالوط","مطاي","مغاغة","ملوي"],"الوادي_الجديد":["الداخلة","الخارجة","الفرافرة","مركز باريس"],"اسوان":["دراو","ادفو","كوم امبو","ابو سمبل","البصيلية","الرديسية","السباعية","كلابشة","نصر النوبة"],"اسيوط":["ابنوب","ابو تيج","اسيوط","اسيوط الجديدة","البداري","الغنايم","الفتح","القوصية","ديروط","ساحل سليم","صدفا","منفلوط"],"بني_سويف":["الفشن","الواسطي","اهناسيا","ببا","بني سويف","بني سويف الجديدة","سمسطا","ناصر(الشناوية)","اطفيح","الصف","العياط"],"بورسعيد":["حي الشرق","حي الجنوب","حي بورفؤاد","حي الضواحي","حي المناخ","حي الزهور","حي العرب"],"دمياط":["الروضة","الزرقا","السرو","جمصة","دمياط الجديدة","راس البر","عزبة البرج","فارسكور","كفر البطيخ","كفر سعد","ميت ابوغالب"],"سوهاج":["اخميم","البلينا","المراغة","المنشاة","جرجا","جهينة سوهاج","دار السلام سوهاج","ساقلتة","سوهاج","طما","طهطا"],"قنا":["ابو تشت","ارمنت","الوقف","دشنا","فرشوط","قفط","قنا","قوص","نجع حمادي","نقادة"],"كفر_الشيخ":["البرلـــس","الحامـول","الرياض","بيـــــلا","دســــوق","سيدي سالم","فوه","قلين","كفر الشيخ","مطوبس"],"مطروح":["الحمام","الساحل الشمالي","السلوم","الضبعة","العلمين","النجيلة","سيدي براني","سيوة","مرسي مطروح"]};
+const CITY_AREAS={"القاهرة": ["الأميرية", "البساتين", "التجمع الاول", "الجمالية الحسين القاهرة", "الخليفة", "الدرب الأحمر", "الرحاب", "الزاوية الحمراء", "الزمالك", "الزيتون", "السلام", "السيدة زينب", "الشرابية", "العباسية", "ؤ", "المطرية", "المعادي", "المقطم", "المنيل", "الوايلي", "بهتيم", "جاردن سيتي", "جسر السويس", "حدائق القبة", "دار السلام المعادي", "شبرا الخيمة", "شبرا مصر", "شيراتون", "طرة", "عزبة النخل", "عين شمس", "مدينة نصر", "مسطرد", "مصر الجديدة", "مصر القديمة", "وسط البلد", "يهتيم"], "الجيزة": ["ارض اللواء", "الدقي", "العجوزة", "العمرانية", "المهندسين", "الهرم", "الوراق", "امبابة", "بولاق", "بولاق الدكرور", "فيصل", "السيدة عائشة", "الهضبة الوسطي", "العتبة", "جزيرة الدهب", "صفط اللبن"], "اطراف القاهرة": ["15 مايو", "التبين", "التجمع الثالث", "التجمع الخامس", "الخصوص", "الشروق", "العاصمة الادارية", "العبور", "القطامية", "بدر القاهرة", "حلوان", "مدينة المستقبل", "مدينتي"], "اطراف الجيزة": ["طريق الواحات", "6 اكتوبر", "ابو النمرس", "ابو رواش", "البدرشين", "الحوامدية", "الشيخ زايد الجيزة", "المنيب", "أوسيم", "حدائق الاهرام", "كرداسة", "جزيرة الدهب", "دجلة بالمز", "ساقية مكي", "ميدان الجيزة", "البحر الاعظم", "مول العرب 6 اكتوبر", "القرية الذكية - زايد", "الحي المتميز 6 اكتوبر", "مساكن دهشور 6 اكتوبر", "دريم لاند", "مدينة الفردوس"], "الاسكندرية": ["6 اكتوبر العجمي", "ابو قير", "ابيس", "ابيس 2", "ابيس 8", "الابراهيمية - الاسكندرية", "الازاريطة", "البيطاش", "الجمرك", "الحضرة", "الدخيلة", "الراس السوداء", "الرمل", "الساعة", "السلسلة", "السيوف", "الشاطبي", "العامرية", "العجمي", "العصافرة", "العطارين", "العماروة", "العوايد", "الفلكي", "القباري", "اللبان", "المعمورة", "المكس", "المنتزة", "المندرة", "المنشية", "الهانوفيل", "الورديان", "باب شرق", "باكوس", "بحري", "برج العرب", "بوكلي", "جاناكليس", "جليم", "حجر النواتية", "خورشيد", "راس التين", "رشدي", "زوايدة", "زيزينيا", "سابا باشا", "سان استيفانو", "سبورتينج", "سكينة", "سموحة", "سيدي بشر", "سيدي جابر", "شارع 45", "عزبة سعد", "غيط العنب", "فلمنج", "ڤيكتوريا", "قرية العزة", "قرية النهضة", "قرية الوفاء والامل", "قرية بغداد", "قرية بنجر السكر", "قرية بهيج", "كامب شيرار", "كرموز", "كفر عبدة", "كليوباترا", "كوم الدكة", "كوم الشقافة", "كينج ماريوت", "لوران", "محرم بك", "محطة الرمل", "مرغم", "ميامي", "مينا البصل", "طوسون", "المعمورة الشاطي", "الطابية خورشيد اسكندرية"], "القليوبية": ["ابو زعبل", "الجبل الاصفر", "الخانكة", "القلج", "القناطر الخيرية", "باسوس", "بنها", "شبين القناطر", "طنط الجزيرة", "طوخ", "قليوب البلد", "كفر شكر", "مركز قها", "منشية القناطر", "ميت حلفا", "ميت نما"], "الاسماعيلية": ["ابوصوير", "الاسماعيلية", "التل الكبير", "القصاصين", "القنطرة شرق", "القنطرة غرب", "فايد"], "الاقصر": ["مدينة الاقصر", "مدينة الاقصر الجديدة", "مدينة طيبة الجديدة", "مركز ارمنت", "مركز اسنا", "مركز البياضية", "مركز الزينية", "مركز الطود", "مركز القرنة"], "البحر_الاحمر": ["الجونة", "الغردقة", "القصير", "راس غارب", "سفاجا", "سهل حشيش", "شلاتين", "مرسي علم", "مكادي"], "البحيرة": ["ابو المطامير", "ابو حمص", "ادكو", "الدلنجات", "الرحمانية", "المحمودية", "النوبارية الجديدة", "ايتاي البارود", "حوش عيسي", "دمنهور", "رشيد", "شبراخيت", "كفر الدوار", "كوم حمادة", "مدينة بدر البحيرة", "وادي النطرون"], "الدقهلية": ["اجا", "الجمالية الدقهلية", "السنبلاوين", "الكردي", "المطرية - الدقهلية", "المنزلة", "المنصورة", "بلقاس", "بني عبيد", "تمي الامديد", "جمصة", "دكرنس", "شربين", "طلخا", "منية النصر", "ميت سلسيل", "ميت غمر", "نبروة"], "السويس": ["حي الاربعين", "حي الجناين", "حي السويس", "حي عتاقة", "حي فيصل"], "الشرقية": ["ابو كبير", "ابو حماد", "الابراهيمية - الشرقية", "الحسينية", "الزقازيق", "الصالحية", "العاشر من رمضان", "القرين", "القنايات", "اولاد صقر", "بلبيس", "ديرب نجم", "فاقوس", "مشتول السوق", "منيا القمح", "ههيا"], "الغربية": ["السنطة", "المحلة الكبري", "بسيون", "زفتي", "سمنود", "طنطا", "قطور", "كفر الزيات"], "الفيوم": ["ابشواي", "اطسا", "الفيوم", "سنورس", "طامية", "يوسف الصديق"], "المنوفية": ["السادات", "الباجور", "الشهداء", "أشمون", "بركة السبع", "تلا", "سرس الليان", "شبين الكوم", "قويسنا", "منوف"], "المنيا": ["ابو قرقاص", "العدوة", "المنيا", "المنيا الجديدة", "بني مزار", "دير مواس", "سمالوط", "مطاي", "مغاغة", "ملوي"], "الوادي_الجديد": ["الداخلة", "الخارجة", "الفرافرة", "مركز باريس"], "اسوان": ["دراو", "ادفو", "كوم امبو", "ابو سمبل", "البصيلية", "الرديسية", "السباعية", "كلابشة", "نصر النوبة"], "اسيوط": ["ابنوب", "ابو تيج", "اسيوط", "اسيوط الجديدة", "البداري", "الغنايم", "الفتح", "القوصية", "ديروط", "ساحل سليم", "صدفا", "منفلوط"], "بني_سويف": ["الفشن", "الواسطي", "اهناسيا", "ببا", "بني سويف", "بني سويف الجديدة", "سمسطا", "ناصر(الشناوية)", "اطفيح", "الصف", "العياط"], "بورسعيد": ["حي الشرق", "حي الجنوب", "حي بورفؤاد", "حي الضواحي", "حي المناخ", "حي الزهور", "حي العرب"], "دمياط": ["الروضة", "الزرقا", "السرو", "جمصة", "دمياط الجديدة", "راس البر", "عزبة البرج", "فارسكور", "كفر البطيخ", "كفر سعد", "ميت ابوغالب"], "سوهاج": ["اخميم", "البلينا", "المراغة", "المنشاة", "جرجا", "جهينة سوهاج", "دار السلام سوهاج", "ساقلتة", "سوهاج", "طما", "طهطا"], "قنا": ["ابو تشت", "ارمنت", "الوقف", "دشنا", "فرشوط", "قفط", "قنا", "قوص", "نجع حمادي", "نقادة"], "كفر_الشيخ": ["البرلـــس", "الحامـول", "الرياض", "بيـــــلا", "دســــوق", "سيدي سالم", "فوه", "قلين", "كفر الشيخ", "مطوبس"], "مطروح": ["الحمام", "الساحل الشمالي", "السلوم", "الضبعة", "العلمين", "النجيلة", "سيدي براني", "سيوة", "مرسي مطروح"]};
+function azzamsAreasFor(g){const k=Object.keys(CITY_AREAS).find(k=>shippingSheetNorm(k)===shippingSheetNorm(g));return CITY_AREAS[k]||[];}
+
 
 function shippingSheetNorm(v){return String(v||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[_\-–—/،,:؛]+/g,' ').replace(/[ًٌٍَُِّْـ]/g,'').replace(/\s+/g,' ').trim()}
 function shippingSheetKnownArea(gov,area){const a=shippingSheetNorm(area);if(!a||!CITY_AREAS[gov])return false;return CITY_AREAS[gov].some(x=>shippingSheetNorm(x)===a)}
@@ -5699,8 +5484,8 @@ window.v68AddEditItem=function(){
 };
 function v68PopulateAreaSelect(preserve){
  const gov=document.getElementById('v68-gov')?.value||'',sel=document.getElementById('v68-area-select'),inp=document.getElementById('v68-area');if(!sel)return;
- const keep=preserve!==undefined?preserve:(inp?.value||'');const areas=[...new Set(CITY_AREAS[gov]||[])];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+v68Esc(a)+'">'+v68Esc(a)+'</option>').join('');
- const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));sel.value=hit||'';if(inp&&hit)inp.value=hit;else if(inp&&preserve!==undefined)inp.value=keep||'';
+ const keep=preserve!==undefined?preserve:(inp?.value||'');const areas=[...new Set(azzamsAreasFor(gov))];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+v68Esc(a)+'">'+v68Esc(a)+'</option>').join('');
+ const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));if(keep&&!hit)sel.add(new Option(keep+' (مسجلة سابقًا)',keep));sel.value=hit||keep||'';if(inp)inp.value=hit||keep||'';
 }
 window.v68PopulateAreaSelect=v68PopulateAreaSelect;
 function v68RefreshEditSummary(){
@@ -5711,7 +5496,7 @@ window.v68EditAutoShipping=function(){const gov=document.getElementById('v68-gov
 window.v68CloseEdit=function(){const o=document.getElementById('v68-edit-overlay');if(o)o.classList.remove('open');v68EditKey='';v68EditCart=[];v68EditLabels=[]};
 window.editSale=function(key){
  v68EnsureModal();const s=salesData?.[key];if(!s)return alert('تعذر فتح الأوردر. اعمل تحديث للصفحة وحاول تاني.');v68EditKey=key;v68EditCart=Array.isArray(s.items)?JSON.parse(JSON.stringify(s.items)).map(i=>({...i,commName:i.commName||i.name||'',stockName:i.stockName||i.name||''})):[];if(!v68EditCart.length&&s.name)v68EditCart=[{id:s.productId||'',name:s.name,price:(Number(s.revenue)||0)/(Number(s.qty)||1),cost:(Number(s.cogs)||0)/(Number(s.qty)||1),isBundle:!!s.isBundle,qty:Number(s.qty)||1,commName:s.commName||'',commUrl:s.commUrl||''}];v68EditLabels=Array.isArray(s.labels)?[...s.labels]:[];
- const gov=document.getElementById('v68-gov'),srcGov=document.getElementById('sale-gov');gov.innerHTML=srcGov?srcGov.innerHTML:'<option value="">-- اختر --</option>';gov.value=s.gov||'';
+ const gov=document.getElementById('v68-gov'),srcGov=document.getElementById('sale-gov');gov.innerHTML=srcGov?srcGov.innerHTML:'<option value="">-- اختر --</option>';if(s.gov&&![...gov.options].some(o=>o.value===s.gov))gov.add(new Option(s.gov,s.gov));gov.value=s.gov||'';
  const list=document.getElementById('v68-product-list');list.innerHTML=[...Object.values(productsData||{}),...Object.values(bundlesData||{})].map(x=>`<option value="${v68Esc(x.name||'')}">`).join('');
  v68PopulateAreaSelect(s.area||'');const vals={'v68-customer':s.customer||'','v68-phone':s.phone||'','v68-phone2':s.phone2||'','v68-area':s.area||'','v68-address':s.address||'','v68-date':s.date||v68Today(),'v68-shipping':s.freeShipping?0:(Number(s.shipping)||0),'v68-real-shipping':Number(s.actualShippingCost??s.shipping??0)||0,'v68-prepaid':Number(s.prepaidAmount??s.deposit??0)||0,'v68-discount':Number(s.discount)||0,'v68-gift-message':s.giftMessage||'','v68-notes':s.notes||''};Object.entries(vals).forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.value=v});
  document.getElementById('v68-payment').value=s.paymentMethod||((Number(s.deposit)||0)>0?'InstaPay':'COD');document.getElementById('v68-status').value=s.status||'قيد التجهيز';document.getElementById('v68-source').value=s.source||'تيك توك';document.getElementById('v68-order-type').value=s.orderType||'normal';document.getElementById('v68-free-shipping').checked=!!s.freeShipping;document.getElementById('v68-free-wrap').checked=!!s.freeWrapping;document.getElementById('v68-edit-ref').textContent='#'+String(key).slice(-6)+' • '+(s.customer||'');
@@ -5891,7 +5676,7 @@ window.addEventListener('DOMContentLoaded',function(){
     mount();
     db.ref('moderators').on('value',snap=>{window.moderatorsData=snap.val()||{};renderModeratorsAdmin()});
     /* unified notification ledger */
-    const old=window.updateUI;if(old&&!old.__modWrapped){const fn=function(){const r=old.apply(this,arguments);try{renderModeratorsAdmin()}catch(e){}return r};fn.__modWrapped=true;window.updateUI=fn}
+    const old=window.updateUI;if(old&&!old.__modWrapped){const fn=function(){const r=old.apply(this,arguments);try{if(document.getElementById('section-moderators')?.classList.contains('active'))renderModeratorsAdmin()}catch(e){}return r};fn.__modWrapped=true;window.updateUI=fn}
   }
   azzamsReady(boot);
 })();
@@ -6571,7 +6356,7 @@ window.addEventListener('DOMContentLoaded',function(){
     db.ref('couriers').on('value',snap=>{window.couriersData=snap.val()||{};renderCourierAdmin();});
     const original=window.updateUI;
     if(original&&!original.__courierWrapped){
-      const wrapped=function(){const r=original.apply(this,arguments);try{renderCourierAdmin()}catch(e){}return r;};
+      const wrapped=function(){const r=original.apply(this,arguments);try{if(document.getElementById('section-couriers')?.classList.contains('active'))renderCourierAdmin()}catch(e){}return r;};
       wrapped.__courierWrapped=true;window.updateUI=wrapped;
     }
   }
@@ -6625,8 +6410,8 @@ function settle(data,cid,expected,id,ts){
  const d=clone(data),rows=Object.entries(d.sales||{}).filter(([,s])=>s.courierId===cid&&s.courierResult&&!s.courierSettledAt);
  if(!rows.length)throw Error('لا توجد أوردرات غير مسوّاة');
  const now=Object.fromEntries(rows);if(canonical(now)!==canonical(expected))throw Error('حساب المندوب اتغير؛ راجع الأرقام وأعد التسوية');
- let due=0,owe=0;const lines=[];for(const[k,s]of rows){const b=balance(s);due+=b.due;owe+=b.owe;lines.push({orderId:k,result:s.courierResult,storeDue:b.due,courierDue:b.owe,customerCollected:num(s.customerCollectedAmount),courierFee:num(s.courierShippingFee)});s.courierSettledAt=ts;s.courierSettlementId=id;s.updatedAt=ts;s.revision=num(s.revision)+1;}
- d.courier_settlements=d.courier_settlements||{};d.courier_settlements[id]={id,courierId:cid,courierName:d.couriers?.[cid]?.name||'',orders:rows.map(([k])=>k),ordersCount:rows.length,receivableFromCourier:due,payableToCourier:owe,netBalance:due-owe,lines,timestamp:ts,date:new Date(ts).toLocaleDateString('en-CA',{timeZone:'Africa/Cairo'})};return d;
+ let due=0,owe=0;const lines=[];for(const[k,s]of rows){const b=balance(s);due=Math.round((due+b.due)*100)/100;owe=Math.round((owe+b.owe)*100)/100;lines.push({orderId:k,result:s.courierResult,storeDue:b.due,courierDue:b.owe,customerCollected:num(s.customerCollectedAmount),courierFee:num(s.courierShippingFee)});s.courierSettledAt=ts;s.courierSettlementId=id;s.updatedAt=ts;s.revision=num(s.revision)+1;}
+ d.courier_settlements=d.courier_settlements||{};d.courier_settlements[id]={id,courierId:cid,courierName:d.couriers?.[cid]?.name||'',orders:rows.map(([k])=>k),ordersCount:rows.length,receivableFromCourier:due,payableToCourier:owe,netBalance:Math.round((due-owe)*100)/100,lines,timestamp:ts,date:new Date(ts).toLocaleDateString('en-CA',{timeZone:'Africa/Cairo'})};return d;
 }
 return{num,clone,closed,current,canonical,validate,components,held,adjust,history,save,receiveReturn,balance,settle};
 });
@@ -6708,7 +6493,7 @@ window.confirmReturn=async function(){const key=$('return-sale-id').value,reason
 window.confirmDeleteSale=async function(key){const expected=F.clone(salesData[key]||{});if(!confirm('نقل الأوردر للسجل المحذوف؟ يسمح بذلك فقط قبل الشحن.'))return;try{await azzamsAtomic(data=>{const d=F.clone(data),s=d.sales?.[key];if(!s||F.canonical(s)!==F.canonical(expected))throw Error('الأوردر اتعدل؛ راجعه مرة أخرى');if(s.courierId||F.closed(s)||s.courierSettledAt||s.dispatchedAt)throw Error('لا يمكن حذف أوردر خرج للشحن أو اكتمل');if(F.held(s))F.adjust(d,s.stockComponents||F.components(s,d.bundles||{}),1);d.deleted_sales=d.deleted_sales||{};d.deleted_sales[key]={...s,deletedAt:Date.now()};delete d.sales[key];return d;});}catch(e){alert(e.message);}};
 window.settleCourier=async function(cid){
  const expected=F.clone(Object.fromEntries(Object.entries(salesData||{}).filter(([,s])=>s.courierId===cid&&s.courierResult&&!s.courierSettledAt)));
- let due=0,owe=0;for(const s of Object.values(expected)){const b=F.balance(s);due+=b.due;owe+=b.owe;}
+ let due=0,owe=0;for(const s of Object.values(expected)){const b=F.balance(s);due=Math.round((due+b.due)*100)/100;owe=Math.round((owe+b.owe)*100)/100;}
  if(!Object.keys(expected).length)return alert('لا توجد أوردرات غير مسوّاة');
  if(!confirm('تسوية '+(window.couriersData[cid]?.name||'المندوب')+'\nعدد الأوردرات: '+Object.keys(expected).length+'\nللمتجر: '+due+' ج\nللمندوب: '+owe+' ج\nالصافي: '+(due-owe)+' ج\n\nأكد فقط بعد استلام أو دفع المبلغ. ستنتقل الأوردرات المنتهية للأرشيف.'))return;
  const id=db.ref('courier_settlements').push().key,ts=Date.now();try{await azzamsAtomic(d=>F.settle(d,cid,expected,id,ts));alert('تمت التسوية. الأوردرات المنتهية انتقلت للأرشيف؛ المرتجعات المنتظرة تظل ظاهرة.');}catch(e){alert(e.message);}
@@ -6786,5 +6571,7 @@ if(isMod){
 <script src="gift-print.js"></script>
 <script src="desktop-ui.js"></script>
 <script src="mobile-status.js"></script>
+<script src="finance-core.js"></script>
+<script src="finance-ui.js"></script>
 </body>
 </html>

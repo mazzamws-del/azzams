@@ -95,3 +95,21 @@ exports.moderatorEventPush = onValueCreated({
   });
   logger.info("Moderator push sent", { id, orderId });
 });
+
+// Calendar-period closing. Safe on retries; no source record is removed.
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const finance = require('./lib/finance');
+exports.monthlyAccountingClose = onSchedule({schedule:'10 0 * * *',timeZone:'Africa/Cairo',region:'us-central1',timeoutSeconds:540,maxInstances:1},async()=>{
+ const ref=getDatabase().ref();
+ await ref.once('value');
+ await ref.transaction(data=>{
+  if(!data||!data.settings?.accountingStartDate)return;
+  const existing=data.monthly_closures||{},last=Object.values(existing).map(r=>r.to).sort().pop();
+  const start=last?finance.addDay(last,1):finance.startDate(data),today=finance.day(Date.now());
+  const periods=finance.periods(start,today,data.settings?.monthlyClosingDay);
+  if(!periods.length)return;
+  data.monthly_closures=existing;
+  for(const p of periods)if(!existing[p.id])existing[p.id]={...finance.report(data,p.from,p.to),id:p.id,closedAt:Date.now(),mode:'server',balanceAsOf:today};
+  data.accounting_service={lastRun:Date.now(),scheduler:true};return data;
+ },undefined,false);
+});
