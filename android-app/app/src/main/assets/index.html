@@ -4718,8 +4718,9 @@ function v6LocalDate(d){
   return `${y}-${m}-${day}`;
 }
 function v6Num(n){ return Number(n||0); }
-function v6Money(n){ return Math.round(v6Num(n)).toLocaleString('ar-EG') + ' ج'; }
+function v6Money(n){ return v6Num(n).toLocaleString('ar-EG',{maximumFractionDigits:2}) + ' ج'; }
 function v6Esc(v){ return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+Object.assign(window,{v6Esc,v6Money,v6OrderTotal,v6Settlement,v6Transition});
 function v6OrderTotal(s){
   const products = v6Num(s.revenue) - v6Num(s.discount);
   const customerShipping = s.freeShipping ? 0 : v6Num(s.shipping);
@@ -4810,8 +4811,8 @@ function renderV6Dashboard(){
   const delivered=day.filter(s=>s.status==='تم التوصيل');
   const returns=day.filter(s=>s.status==='مرتجع');
   const dayExp=exps.filter(e=>e.date===date);
-  const salesValue=delivered.reduce((n,s)=>n+Math.max(0,v6Num(s.revenue)-v6Num(s.discount)),0);
-  let profit=0; try{profit=calcProfit(delivered,dayExp)-periodReturnCost(date,date);}catch(e){profit=salesValue-delivered.reduce((n,s)=>n+v6Num(s.cogs),0)-dayExp.reduce((n,e)=>n+v6Num(e.amount),0);}
+  const ledger=AzzamsFinance.report({sales:salesData,expenses:expensesData,settings},date,date);
+  const salesValue=ledger.revenue/100,profit=ledger.profit/100;
   const pending=all.filter(s=>['قيد التجهيز','متابعة','استبدال'].includes(s.status)).length;
   const withCourier=all.filter(s=>s.status==='مع المندوب');
   let courierIn=0,courierOut=0,cod=0,prepaid=0;
@@ -4832,19 +4833,8 @@ function renderV6Dashboard(){
   document.getElementById('v6-funnel').innerHTML=stages.map(([n,c,r],i)=>`<div class="v6-stage"><div class="v6-stage-num">${c}</div><div class="v6-stage-name">${n}</div><div class="v6-stage-rate">${i===0?'إجمالي الفترة':Math.round(r)+'% من المرحلة السابقة'}</div></div>`).join('');
 
   // Money breakdown for selected day
-  const cogs=delivered.reduce((n,s)=>n+v6Num(s.cogs),0);
-  const discounts=delivered.reduce((n,s)=>n+v6Num(s.discount),0);
-  const shipLoss=delivered.reduce((n,s)=>{const actual=v6Num(s.actualShippingCost||s.shipping),paid=s.freeShipping?0:v6Num(s.shipping);return n+Math.max(0,actual-paid)},0);
-  const expenses=dayExp.reduce((n,e)=>n+v6Num(e.amount),0);
-  const returnLoss=returns.reduce((n,s)=>n+v6Num(s.returnCost),0);
-  document.getElementById('v6-money').innerHTML=`
-    <div class="v6-money-row"><span>إيراد المنتجات المسلّمة</span><strong>${v6Money(salesValue+discounts)}</strong></div>
-    <div class="v6-money-row"><span>خصومات</span><strong>-${v6Money(discounts)}</strong></div>
-    <div class="v6-money-row"><span>تكلفة البضاعة</span><strong>-${v6Money(cogs)}</strong></div>
-    <div class="v6-money-row"><span>دعم/فرق الشحن</span><strong>-${v6Money(shipLoss)}</strong></div>
-    <div class="v6-money-row"><span>تكلفة المرتجعات</span><strong>-${v6Money(returnLoss)}</strong></div>
-    <div class="v6-money-row"><span>مصاريف تشغيل</span><strong>-${v6Money(expenses)}</strong></div>
-    <div class="v6-money-row total"><span>صافي الربح</span><strong>${v6Money(profit)}</strong></div>`;
+  document.getElementById('v6-money').innerHTML=[['صافي إيراد المنتجات',ledger.revenue],['تكلفة البضاعة',-ledger.cogs],['هامش الشحن',ledger.shippingMargin],['تغليف ومرتجعات',-ledger.wrapping-ledger.returnCost],['المصروفات وتشمل الإعلانات',-ledger.expenses],['صافي الربح',ledger.profit]].map(([name,value])=>'<div class="v6-money-row"><span>'+name+'</span><strong>'+v6Money(value/100)+'</strong></div>').join('');
+
 
   // Exceptions / alerts
   const now=Date.now();
@@ -5738,8 +5728,8 @@ window.addEventListener('DOMContentLoaded',function(){
     if(typeof showSection==='function')showSection(name,b||null);
     document.querySelectorAll('.mnav-btn').forEach(x=>x.classList.toggle('active',x.dataset.section===name));
     if(typeof closeSidebar==='function')closeSidebar();
-    if(name==='sales')setTimeout(renderMobileSalesCards,30);
-    if(name==='couriers'&&typeof renderCourierAdmin==='function')setTimeout(renderCourierAdmin,30);
+    if(name==='sales')renderMobileSalesCards();
+    if(name==='couriers'&&typeof renderCourierAdmin==='function')renderCourierAdmin();
   }
   window.mobileGo=go;
 
@@ -6573,5 +6563,7 @@ if(isMod){
 <script src="mobile-status.js"></script>
 <script src="finance-core.js"></script>
 <script src="finance-ui.js"></script>
+<link rel="stylesheet" href="redesign.css">
+<script src="redesign.js"></script>
 </body>
 </html>
