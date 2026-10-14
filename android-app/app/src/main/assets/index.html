@@ -6501,17 +6501,8 @@ window.showCourierCurrent=function(cid){$('courier-orders-filter').value=cid||''
 window.showCourierSettlements=function(cid){
  db.ref('courier_settlements').orderByChild('courierId').equalTo(cid).once('value').then(snap=>{let box=$('azzams-settlement-dialog');if(!box){box=document.createElement('dialog');box.id='azzams-settlement-dialog';box.style.cssText='max-width:700px;width:90%;border:0;border-radius:16px;padding:24px;direction:rtl';document.body.appendChild(box);}const rows=Object.values(snap.val()||{}).sort((a,b)=>n(b.timestamp)-n(a.timestamp));box.innerHTML='<h3>سجل تسويات '+esc(window.couriersData[cid]?.name)+'</h3><div style="max-height:65vh;overflow:auto">'+(rows.map(r=>'<div style="padding:12px;border-bottom:1px solid #ddd">'+esc(new Date(r.timestamp).toLocaleString('ar-EG'))+' — '+n(r.ordersCount)+' أوردر<br>صافي التسوية: <b>'+n(r.netBalance)+' ج</b><br><small>'+esc(r.id)+'</small></div>').join('')||'لا توجد تسويات')+'</div><button onclick="this.closest(\'dialog\').close()">إغلاق</button>';box.showModal();}).catch(e=>alert(e.message));
 };
-// Persist a single in-app notification ledger, keyed by immutable event IDs.
-let notes=[];try{notes=JSON.parse(localStorage.getItem('azzamsNotificationsV19')||'[]');if(!Array.isArray(notes))notes=[];}catch(_){}
-function persist(){try{localStorage.setItem('azzamsNotificationsV19',JSON.stringify(notes));}catch(e){console.warn('تعذر حفظ سجل الإشعارات على الجهاز',e);}activeNotifications=notes;const count=notes.filter(x=>!x.read).length;for(const id of ['notif-count-badge','mobile-notif-badge']){const b=$(id);if(b){b.textContent=String(count);b.style.display=count?'inline-flex':'none';}}}
-function add(id,text,ts,orderId){if(notes.some(x=>x.id===id))return;notes.push({id,text,time:new Date(ts).toLocaleString('ar-EG'),timestamp:ts,orderId:orderId||'',read:false});notes.sort((a,b)=>b.timestamp-a.timestamp);persist();if(ts>=started)popup(text);}
-window.pushNotification=function(text){add('local-'+crypto.randomUUID(),String(text),Date.now(),'');};
-window.openNotifModal=function(){const list=$('notifications-list');list.replaceChildren();for(const x of notes.filter(x=>!x.read)){const row=document.createElement('div');row.style.cssText='padding:12px;border-bottom:1px solid #ddd';const label=document.createElement('div');label.textContent=x.text;const time=document.createElement('small');time.textContent=x.time;row.append(label,time);if(x.orderId&&salesData[x.orderId]){const b=document.createElement('button');b.textContent='عرض الأوردر';b.onclick=()=>{closeModal('overlay-notifications');showCourierCurrent(salesData[x.orderId]?.courierId||'');const input=$('courier-orders-search');if(input)input.value=salesData[x.orderId]?.phone||'';renderCourierAdmin();};row.append(b);}list.append(row);}if(!notes.some(x=>!x.read))list.textContent='لا توجد إشعارات';persist();openModal('overlay-notifications');};
-window.clearNotifications=function(){notes.forEach(x=>x.read=true);persist();openNotifModal();};
-function recordEvent(path,key,e){const who=e.moderatorName||e.courierName||'',customer=e.customer||salesData[e.orderId]?.customer||'أوردر';const action={new_order:'أوردر جديد',edit_order:'تعديل أوردر',result:'نتيجة توصيل',postponed:'تأجيل أوردر',note:'ملاحظة'}[e.type]||'تحديث';add(path+'/'+key,[action,who,customer,e.note||e.reason||e.result||''].filter(Boolean).join(' — '),n(e.timestamp)||Date.now(),e.orderId);}
-function scanOutbox(){for(const s of Object.values(salesData||{})){for(const[key,e]of Object.entries(s.courierEventOutbox||{}))if(e.value)recordEvent('courier_events',key,e.value);for(const[key,e]of Object.entries(s.moderatorEventOutbox||{}))if(e.value)recordEvent('moderator_events',key,e.value);}}
-function boot(){persist();const b=document.querySelector('#overlay-notifications .btn-danger');if(b)b.textContent='تعليم الكل كمقروء';for(const path of ['moderator_events','courier_events']){db.ref(path).on('child_added',snap=>recordEvent(path,snap.key,snap.val()||{}),e=>console.warn('تعذر تحميل الإشعارات',e.code));}const old=window.updateUI;window.updateUI=function(){const r=old.apply(this,arguments);scanOutbox();return r;};scanOutbox();}
-azzamsReady(boot);
+// Notification state and presentation are handled by notifications.js.
+
 })();
 
 </script>
@@ -6565,5 +6556,9 @@ if(isMod){
 <script src="finance-ui.js"></script>
 <link rel="stylesheet" href="redesign.css">
 <script src="redesign.js"></script>
+<link rel="stylesheet" href="interiors.css">
+<script src="interiors.js"></script>
+<link rel="stylesheet" href="notifications.css">
+<script src="notifications.js"></script>
 </body>
 </html>
