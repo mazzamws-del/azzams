@@ -1,4 +1,4 @@
 # Azzams Android Build
 
-Build admin 1.14.0: redesigned interiors, persistent notification dismissals and simplified monthly closing.
-Source commit: d7d5f320bdfbd4fa1cc8d46569d9bc9215976690.
+Build admin 1.15.0 and moderator 1.4.3: working manual closing, archive carryover, monthly order counts and full sheet regions.
+Source commit: 97f512ee1bfa388e805a90363d66ed627ba6369d.
