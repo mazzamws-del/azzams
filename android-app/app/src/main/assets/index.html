@@ -2656,7 +2656,7 @@ function updateUI() {
    RETURNS UI
 ======================== */
 function updateReturnsUI() {
-    const returns = Object.entries(salesData).filter(([,s]) => s.status === 'مرتجع' || s.status === 'ملغي');
+    const returns = Object.entries(salesData).filter(([,s]) => (window.azzamsArchiveView==='returns'?!!s.monthlyArchiveId:!s.monthlyArchiveId) && (s.status === 'مرتجع' || s.status === 'ملغي'));
     const returnedOnly = returns.filter(([,s]) => s.status === 'مرتجع');
     const cancelledOnly = returns.filter(([,s]) => s.status === 'ملغي');
     const totalVal = returnedOnly.reduce((sum,[,s]) => sum + (s.revenue||0) + (s.shipping||0) - (s.discount||0), 0);
@@ -2909,6 +2909,8 @@ function updateSalesUI() {
 
     const ACTIVE_STATUSES = ['قيد التجهيز','متابعة','مع المندوب','استبدال'];
     Object.entries(salesData).forEach(([key, s]) => {
+        if(s.monthlyArchiveId&&window.azzamsArchiveView!=='delivered')return;
+        if(!s.monthlyArchiveId&&s.status==='تم التوصيل'&&window.azzamsArchiveView==='delivered')return;
         const searchStr = ((s.name || '') + (s.customer || '') + (s.phone || '')).toLowerCase();
         if (s.status === 'تم التوصيل') {
             if (searchStr.includes(deliveredQ)) deliveredSales.push([key, s]);
@@ -3821,7 +3823,7 @@ function addExpense() {
 }
 
 function updateExpensesUI() {
-    document.getElementById('expenses-list').innerHTML = Object.entries(expensesData)
+    document.getElementById('expenses-list').innerHTML = Object.entries(expensesData).filter(([,e])=>window.azzamsArchiveView==='expenses'?!!e.monthlyArchiveId:!e.monthlyArchiveId)
         .sort((a, b) => b[1].date?.localeCompare(a[1].date || ''))
         .map(([key, e]) =>
             `<tr>
@@ -4850,7 +4852,7 @@ function renderV6Dashboard(){
   if(!alerts.length)alerts.push(['success','مفيش استثناءات حرجة دلوقتي — التشغيل مستقر.']);
   document.getElementById('v6-alerts').innerHTML=alerts.map(([cls,msg])=>`<div class="v6-alert ${cls}"><span>•</span><div>${v6Esc(msg)}</div></div>`).join('');
 
-  const recent=Object.entries(salesData||{}).sort((a,b)=>v6Num(b[1].timestamp)-v6Num(a[1].timestamp)).slice(0,7);
+  const recent=Object.entries(salesData||{}).filter(([,s])=>!s.monthlyArchiveId).sort((a,b)=>v6Num(b[1].timestamp)-v6Num(a[1].timestamp)).slice(0,7);
   document.getElementById('v6-recent').innerHTML=recent.length?recent.map(([k,s])=>`<div class="v6-order-item"><div class="v6-order-id">#${v6Esc(String(k).slice(-6))}</div><div><div class="v6-order-name">${v6Esc(s.customer||'—')}</div><div class="v6-order-meta">${v6Esc(s.gov||'')} ${s.source?'• '+v6Esc(s.source):''}</div></div><div class="v6-order-amount">${v6Money(v6OrderTotal(s))}</div><div class="v6-status">${v6Esc(s.status||'—')}</div></div>`).join(''):'<div class="v6-alert">لا توجد طلبات بعد.</div>';
 }
 window.renderV6Dashboard=renderV6Dashboard;
@@ -5473,6 +5475,7 @@ window.v68AddEditItem=function(){
  else return alert('المنتج مش موجود في المخزن.');v68EditCart.push(item);document.getElementById('v68-add-product').value='';document.getElementById('v68-add-qty').value=1;v68RenderEditCart();
 };
 function v68PopulateAreaSelect(preserve){
+ if(window.AzzamsRegions)return AzzamsRegions.fill('v68-gov','v68-area-select','v68-area',preserve);
  const gov=document.getElementById('v68-gov')?.value||'',sel=document.getElementById('v68-area-select'),inp=document.getElementById('v68-area');if(!sel)return;
  const keep=preserve!==undefined?preserve:(inp?.value||'');const areas=[...new Set(azzamsAreasFor(gov))];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+v68Esc(a)+'">'+v68Esc(a)+'</option>').join('');
  const hit=areas.find(a=>shippingSheetNorm(a)===shippingSheetNorm(keep));if(keep&&!hit)sel.add(new Option(keep+' (مسجلة سابقًا)',keep));sel.value=hit||keep||'';if(inp)inp.value=hit||keep||'';
@@ -6560,5 +6563,7 @@ if(isMod){
 <script src="interiors.js"></script>
 <link rel="stylesheet" href="notifications.css">
 <script src="notifications.js"></script>
+<script src="regions-picker.js"></script>
+<script src="archive-view.js"></script>
 </body>
 </html>

@@ -11,3 +11,5 @@ body.rd-design,body.rd-design #main-content{background:#f6f7f8!important}body.rd
 @media(min-width:901px){body.rd-design #sidebar{transform:none!important;visibility:visible!important;width:230px!important}body.rd-design #main-content{margin-right:230px!important;width:calc(100% - 230px)!important}body.rd-design #section-dashboard #rd-home-finance{display:grid!important}body.rd-design #section-dashboard #rd-tools-button{display:inline-flex!important}}
 
 body.rd-design .page-body,body.rd-design #app-layout{background:#f6f7f8!important}body.rd-design .rd-tabs .btn{background:none!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;color:#78818d!important}body.rd-design .rd-tabs .btn.active{border-bottom-color:#4a1425!important;color:#4a1425!important}body.rd-design .rd-tabs .btn:hover{background:#f8f3f5!important}
+
+@media(min-width:1100px){#rd-home-finance{grid-template-columns:1.3fr repeat(4,minmax(0,1fr)) auto}.rd-design .mc-totals{grid-template-columns:repeat(5,minmax(0,1fr))}}

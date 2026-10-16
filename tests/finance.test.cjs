@@ -8,3 +8,20 @@ assert.equal(F.report({sales:{r:{date:'2026-02-10',status:'مرتجع',courierRe
 const fs=require('fs'),vm=require('vm');assert.equal(fs.readFileSync('android-app/app/src/main/assets/finance-core.js','utf8'),fs.readFileSync('functions/lib/finance.js','utf8'));
 for(const app of ['app','moderator']){const html=fs.readFileSync(`android-app/${app}/src/main/assets/index.html`,'utf8');for(const m of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(m[1]);const regions=JSON.parse(html.match(/const CITY_AREAS\s*=\s*(\{.*?\});/s)[1]);assert.deepEqual(regions,require('./regions-source.json').areas);assert.equal(regions['الاسكندرية'].length,80);}
 console.log('PASS cents, actual-spend single source, delivery dates, zero shipping, return/wrapping costs, monthly boundaries/leap year, region source, script syntax');
+const closing={settings:{accountingStartDate:'2026-10-01'},sales:{done:{date:'2026-10-02',status:'تم التوصيل',revenue:100,cogs:40,courierResult:'delivered',customerCollectedAmount:100,courierShippingFee:10},pending:{date:'2026-09-20',status:'مع المندوب',revenue:80}},expenses:{ad:{date:'2026-10-03',amount:5,campaignId:'c'}}};
+F.closePeriods(closing,'2026-10-16',true,1000);
+const first=JSON.stringify(closing.monthly_closures),snapshot=Object.values(closing.monthly_closures)[0];
+assert.equal(snapshot.profit,4500);assert.ok(closing.sales.done.monthlyArchiveId);assert.ok(closing.expenses.ad.monthlyArchiveId);assert.ok(!closing.sales.pending.monthlyArchiveId);
+assert.equal(F.pendingReport(closing,'2026-10-16','2026-10-31').receivable,9000);
+F.closePeriods(closing,'2026-10-16',true,1001);assert.equal(JSON.stringify(closing.monthly_closures),first);
+closing.sales.new={date:'2026-10-16',status:'تم التوصيل',revenue:20,cogs:5};closing.expenses.new={date:'2026-10-16',amount:2};
+F.closePeriods(closing,'2026-10-16',true,1002);
+assert.equal(Object.keys(closing.monthly_closures).length,2);assert.equal(Object.values(closing.monthly_closures)[1].profit,1300);
+assert.equal(JSON.stringify(Object.values(closing.monthly_closures)[0]),JSON.stringify(snapshot));
+Object.assign(closing.sales.pending,{status:'تم التوصيل',deliveredAt:'2026-10-28',cogs:30});
+F.closePeriods(closing,'2026-11-01',false,2000);
+assert.ok(closing.sales.pending.monthlyArchiveId);assert.equal(Object.values(closing.monthly_closures).reduce((n,r)=>n+r.profit,0),F.report(closing,'2026-10-01','2026-10-31').profit);
+assert.equal(F.report(closing,'2026-10-01','2026-10-31').createdOrders,2);
+const migration={monthly_closures:{old:{id:'old',from:'2026-09-01',to:'2026-09-30',closedAt:500,orderLines:[{id:'a'}],expenseLines:[{id:'e'}]}},sales:{a:{status:'تم التوصيل',date:'2026-09-01',updatedAt:900},late:{status:'تم التوصيل',date:'2026-09-01'}},expenses:{e:{date:'2026-09-01',updatedAt:900},late:{date:'2026-09-01',amount:1}}};
+F.archiveClosed(migration,1000);assert.equal(migration.sales.a.monthlyArchiveId,'old');assert.equal(migration.expenses.e.monthlyArchiveId,'old');assert.ok(!migration.sales.late.monthlyArchiveId);assert.ok(!migration.expenses.late.monthlyArchiveId);
+console.log('PASS manual closing, archival, pending carryover, courier balances, same-day retries/new activity, automatic month-end continuation, immutable snapshots and legacy migration');

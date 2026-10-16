@@ -196,6 +196,7 @@ function shipRule(g){g=String(g||'').trim();if(!g)return {tier:'',customer:0,act
 function normLoc(v){return String(v||'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[_\-–—/،,:؛]+/g,' ').replace(/[ًٌٍَُِّْـ]/g,'').replace(/\s+/g,' ').trim()}
 function knownArea(gov,area){const a=normLoc(area);if(!a||!CITY_AREAS[gov])return false;return CITY_AREAS[gov].some(x=>normLoc(x)===a)}
 function populateModeratorAreas(govId='gov',selectId='area-select',inputId='area',preserve){
+ if(window.AzzamsRegions)return AzzamsRegions.fill(govId,selectId,inputId,preserve);
  const g=$(govId)?.value||'',sel=$(selectId),inp=$(inputId);if(!sel)return;
  const keep=preserve!==undefined?preserve:(inp?.value||''),areas=[...new Set(CITY_AREAS[Object.keys(CITY_AREAS).find(k=>normLoc(k)===normLoc(g))]||[])];sel.innerHTML='<option value="">-- اختر المنطقة --</option>'+areas.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
  const hit=areas.find(a=>normLoc(a)===normLoc(keep));if(keep&&!hit)sel.add(new Option(keep+' (مسجلة سابقًا)',keep));sel.value=hit||keep||'';if(inp)inp.value=hit||keep||'';
@@ -558,5 +559,6 @@ if(isMod){
 })();
 
 </script>
+<script src="regions-picker.js"></script>
 </body>
 </html>

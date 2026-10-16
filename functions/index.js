@@ -104,12 +104,7 @@ exports.monthlyAccountingClose = onSchedule({schedule:'10 0 * * *',timeZone:'Afr
  await ref.once('value');
  await ref.transaction(data=>{
   if(!data)return;
-  const existing=data.monthly_closures||{},last=Object.values(existing).map(r=>r.to).sort().pop();
-  const start=last?finance.addDay(last,1):finance.startDate(data),today=finance.day(Date.now());
-  const periods=finance.periods(start,today,data.settings?.monthlyClosingDay);
-  if(!periods.length)return;
-  data.monthly_closures=existing;
-  for(const p of periods)if(!existing[p.id])existing[p.id]={...finance.report(data,p.from,p.to),id:p.id,closedAt:Date.now(),mode:'server',balanceAsOf:today};
+  finance.closePeriods(data,finance.day(Date.now()),false);
   data.accounting_service={lastRun:Date.now(),scheduler:true};return data;
  },undefined,false);
 });
