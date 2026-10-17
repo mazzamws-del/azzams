@@ -17,7 +17,7 @@ for name in ('mobile-ui.js','qr-code.js','thermal-label.js','gift-print.js','des
     s=s.replace('<script src="'+name+'"></script>','<script>'+js.replace('</script','<\\/script')+'</script>')
 for sdk in ('app','database','auth'):
     s=s.replace('vendor/firebase-'+sdk+'-compat.js','https://www.gstatic.com/firebasejs/9.22.1/firebase-'+sdk+'-compat.js')
-out=Path(sys.argv[1]) if len(sys.argv)>1 else root/'dist/Azzams-Desktop-1.15.0.html'
+out=Path(sys.argv[1]) if len(sys.argv)>1 else root/'dist/Azzams-Desktop-1.15.1.html'
 out.parent.mkdir(parents=True,exist_ok=True)
 out.write_text(s)
 print(out)

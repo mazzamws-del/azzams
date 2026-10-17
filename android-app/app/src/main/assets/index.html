@@ -6473,12 +6473,20 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)dismissNoti
 document.addEventListener('click',e=>{if(e.target===$('overlay-notifications'))dismissNotifications();});
 function popup(text){if(document.hidden||document.querySelector('.modal-overlay.open,.v68-edit-overlay.open,dialog[open]'))return;const p=$('notif-popup');if(!p)return;clearTimeout(popupTimer);p.textContent=text;p.style.pointerEvents='none';p.style.zIndex='9000';p.style.display='block';popupTimer=setTimeout(()=>{p.style.display='none';},3500);}
 let busy=false;
-window.azzamsAtomic=async function(change){
+// Firebase may invoke a transaction with an empty or stale local cache first.
+// Returning unchanged data lets the server compare-and-retry; undefined aborts too early.
+window.azzamsTransaction=async function(ref,change){
  if(navigator.onLine===false)throw Error('اتصل بالإنترنت لإتمام العملية');
- await db.ref().once('value');let reason='';
- const r=await db.ref().transaction(data=>{if(!data){reason='لم تكتمل قراءة البيانات';return;}try{const out=change(data);reason='';return out;}catch(e){reason=e.message;return;}},undefined,false);
- if(!r.committed)throw Error(reason||'لم تكتمل العملية؛ حدّث البيانات وحاول مرة أخرى');return r.snapshot.val();
+ await ref.once('value');let reason='';
+ const r=await ref.transaction(current=>{
+  reason='';
+  if(current===null){reason='السجل غير موجود على السيرفر؛ حدّث البيانات';return null;}
+  try{return change(F.clone(current));}catch(e){reason=e.message;return current;}
+ },undefined,false);
+ if(reason||!r.committed)throw Error(reason||'لم تكتمل العملية؛ حاول مرة أخرى');
+ return r.snapshot.val();
 };
+window.azzamsAtomic=change=>window.azzamsTransaction(db.ref(),change);
 window.azzamsSave=async function(sale,expected){if(busy)throw Error('جاري حفظ عملية أخرى');busy=true;try{return await azzamsAtomic(d=>F.save(d,sale,expected,Date.now()));}finally{busy=false;}};
 window.receiveCourierReturn=async function(key){if(!confirm('تأكيد استلام المرتجع فعليًا ومراجعة القطع؟'))return;try{await azzamsAtomic(d=>F.receiveReturn(d,key,Date.now()));alert('تم استلام المرتجع وتحديث المخزون');}catch(e){alert(e.message);}};
 window.v63MarkReturnReceived=window.receiveCourierReturn;
