@@ -11,7 +11,7 @@ for name in ('mobile-ui.css','desktop-ui.css','redesign.css','interiors.css','no
     css=(assets/name).read_text()
     for file,data in fonts.items():css=css.replace('fonts/'+file,data)
     s=s.replace('<link rel="stylesheet" href="'+name+'">','<style>'+css+'</style>')
-for name in ('mobile-ui.js','qr-code.js','thermal-label.js','gift-print.js','desktop-ui.js','mobile-status.js','finance-core.js','finance-ui.js','redesign.js','interiors.js','notifications.js','regions-picker.js','archive-view.js'):
+for name in ('mobile-ui.js','qr-code.js','thermal-label.js','gift-print.js','desktop-ui.js','mobile-status.js','finance-core.js','finance-ui.js','redesign.js','interiors.js','notifications.js','regions-picker.js','archive-view.js','preparation-core.js','preparation-ui.js','backups.js'):
     js=(assets/name).read_text()
     if name=='gift-print.js':js=js.replace("new URL('fonts/cairo-700.ttf',document.baseURI).href",repr(fonts['cairo-700.ttf']))
     s=s.replace('<script src="'+name+'"></script>','<script>'+js.replace('</script','<\\/script')+'</script>')
