@@ -43,7 +43,7 @@ jobs:
           done
 
       - name: Verify accounting and region data
-        run: cd .. && node tests/finance.test.cjs && node tests/transactions.test.cjs
+        run: cd .. && node tests/finance.test.cjs && node tests/transactions.test.cjs && node tests/preparation.test.cjs
 
       - name: Build all APKs
         run: gradle :app:assembleDebug :courier:assembleDebug :moderator:assembleDebug
@@ -51,20 +51,20 @@ jobs:
       - name: Prepare APK files
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/Azzams-System-1.15.2.apk
-          python3 ../scripts/build-desktop.py dist/Azzams-System-1.15.2.html
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Azzams-System-1.16.0-review.apk
+          python3 ../scripts/build-desktop.py dist/Azzams-System-1.16.0-review.html
           cp courier/build/outputs/apk/debug/courier-debug.apk dist/Azzams-Courier-1.4.2.apk
-          cp moderator/build/outputs/apk/debug/moderator-debug.apk dist/Azzams-Moderator-1.4.3.apk
-          sed -i 's#vendor/firebase-app-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js#g' dist/Azzams-System-1.15.2.html
-          sed -i 's#vendor/firebase-database-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js#g' dist/Azzams-System-1.15.2.html
-          sed -i 's#vendor/firebase-auth-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js#g' dist/Azzams-System-1.15.2.html
+          cp moderator/build/outputs/apk/debug/moderator-debug.apk dist/Azzams-Moderator-1.5.0-review.apk
+          sed -i 's#vendor/firebase-app-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js#g' dist/Azzams-System-1.16.0-review.html
+          sed -i 's#vendor/firebase-database-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js#g' dist/Azzams-System-1.16.0-review.html
+          sed -i 's#vendor/firebase-auth-compat.js#https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js#g' dist/Azzams-System-1.16.0-review.html
 
       - uses: actions/upload-artifact@v4
         with:
           name: Azzams-System-APK
           path: |
-            android-app/dist/Azzams-System-1.15.2.apk
-            android-app/dist/Azzams-System-1.15.2.html
+            android-app/dist/Azzams-System-1.16.0-review.apk
+            android-app/dist/Azzams-System-1.16.0-review.html
           retention-days: 30
 
       - uses: actions/upload-artifact@v4
@@ -76,5 +76,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Azzams-Moderator-APK
-          path: android-app/dist/Azzams-Moderator-1.4.3.apk
+          path: android-app/dist/Azzams-Moderator-1.5.0-review.apk
           retention-days: 30
