@@ -3447,7 +3447,7 @@ function addSale() {
         timestamp: Date.now()
     };
 
-    azzamsSave(saleObj, editingId ? window.azzamsEditSnapshot : null).then(() => {
+    azzamsSave(saleObj, editingId ? window.azzamsEditSnapshot : null, editingId || saleObj.id).then(() => {
         logAction((editingId ? 'تعديل' : 'إضافة') + ` أوردر: ${customerName}`);
         if (!editingId) {
             void 0;
@@ -5504,7 +5504,7 @@ window.v68SaveEdit=function(){
  let rev=0,cogs=0;v68EditCart.forEach(i=>{rev+=(Number(i.price)||0)*(Number(i.qty)||1);if(i.isBundle)cogs+=(bundlesData[i.id]?.items||[]).reduce((sum,pid)=>sum+(Number(productsData[pid]?.cost)||0)*(Number(i.qty)||1),0);else cogs+=(Number(i.cost)||0)*(Number(i.qty)||1)});
  const free=!!document.getElementById('v68-free-shipping').checked,shipping=free?0:(Number(document.getElementById('v68-shipping').value)||0),real=Number(document.getElementById('v68-real-shipping').value)||0,pre=Number(document.getElementById('v68-prepaid').value)||0,discount=Number(document.getElementById('v68-discount').value)||0,totalQty=v68EditCart.reduce((a,i)=>a+(Number(i.qty)||1),0),name=v68EditCart.map(i=>`${i.commName||i.name} (x${Number(i.qty)||1})`).join(' + ');
  const updated={...s,id:s.id||key,name,items:v68EditCart,qty:totalQty,revenue:rev,cogs,customer,phone,phone2:(typeof normalizePhoneStr==='function'?normalizePhoneStr(document.getElementById('v68-phone2').value):document.getElementById('v68-phone2').value.trim()),gov,area:document.getElementById('v68-area').value.trim(),areaNeedsReview:!shippingSheetKnownArea(gov,document.getElementById('v68-area').value.trim()),areaReviewReason:!document.getElementById('v68-area').value.trim()?'missing':(!shippingSheetKnownArea(gov,document.getElementById('v68-area').value.trim())?'unmatched':''),address,shippingTier:v68ShippingRule(gov).tier,shipping,actualShippingCost:real,freeShipping:free,deposit:pre,prepaidAmount:pre,discount,paymentMethod:document.getElementById('v68-payment').value,status:newStatus,source:document.getElementById('v68-source').value,orderType:document.getElementById('v68-order-type').value,freeWrapping:!!document.getElementById('v68-free-wrap').checked,labels:[...v68EditLabels],giftMessage:document.getElementById('v68-gift-message').value.trim(),notes:document.getElementById('v68-notes').value.trim(),date:document.getElementById('v68-date').value||s.date||v68Today(),updatedAt:Date.now()};
- updates['sales/'+key]=updated;updates['customers/'+phone]={name:customer,phone,address,source:updated.source,date:updated.date};const btn=document.getElementById('v68-save-edit');btn.disabled=true;btn.textContent='جاري الحفظ...';azzamsSave(updated,window.azzamsEditSnapshot).then(()=>{try{logAction('تعديل أوردر من النافذة: '+customer)}catch(e){};v68CloseEdit();alert('✅ تم تحديث الأوردر بنجاح.');}).catch(err=>alert('حصل خطأ أثناء التعديل: '+err.message)).finally(()=>{btn.disabled=false;btn.textContent='حفظ التعديلات'});
+ updates['sales/'+key]=updated;updates['customers/'+phone]={name:customer,phone,address,source:updated.source,date:updated.date};const btn=document.getElementById('v68-save-edit');btn.disabled=true;btn.textContent='جاري الحفظ...';azzamsSave(updated,window.azzamsEditSnapshot,key).then(()=>{try{logAction('تعديل أوردر من النافذة: '+customer)}catch(e){};v68CloseEdit();alert('✅ تم تحديث الأوردر بنجاح.');}).catch(err=>alert('حصل خطأ أثناء التعديل: '+err.message)).finally(()=>{btn.disabled=false;btn.textContent='حفظ التعديلات'});
 };
 
 window.addEventListener('DOMContentLoaded',function(){
@@ -6383,8 +6383,8 @@ function components(s,bundles){
 function held(s){if(!s)return false;if(typeof s.stockAllocated==='boolean')return s.stockAllocated;if(s.returnStockReceivedAt||s.returnReceived)return false;if(s.returnStockPending)return true;return !['ملغي','مرتجع'].includes(s.status);}
 function adjust(data,map,sign){for(const [id,q]of Object.entries(map)){const p=data.products?.[id];if(!p)throw Error('المنتج غير موجود في المخزن');const n=num(p.qty)+sign*q;if(n<0)throw Error('المخزون لا يكفي: '+(p.name||id));p.qty=n;}}
 function history(s,from,to,ts){s.statusHistory=s.statusHistory||{};s.statusHistory[String(ts)]={from:from||'',to,at:ts};s.statusUpdatedAt=ts;}
-function save(data,sale,expected,ts){
- validate(sale);const d=clone(data),old=d.sales?.[sale.id];
+function save(data,sale,expected,ts,recordKey=sale.id){
+ validate(sale);const d=clone(data),old=d.sales?.[recordKey];
  if(expected==null&&old)throw Error('الأوردر موجود بالفعل');
  if(expected!=null&&(!old||canonical(old)!==canonical(expected)))throw Error('الأوردر اتعدل من جهاز آخر. افتحه من جديد');
  if(old?.courierSettledAt||old?.courierResult)throw Error('الأوردر مكتمل أو مسوّى؛ لا يمكن تعديل حساباته');
@@ -6394,7 +6394,7 @@ function save(data,sale,expected,ts){
  const s=clone(sale),map=components(s,d.bundles||{});s.stockAllocated=!['ملغي','مرتجع'].includes(s.status);s.stockComponents=map;
  if(s.stockAllocated)adjust(d,map,-1);
  s.updatedAt=ts;s.revision=num(old?.revision)+1;if(!old||s.status!==old.status)history(s,old?.status,s.status,ts);
- d.sales=d.sales||{};d.sales[s.id]=s;d.customers=d.customers||{};d.customers[s.phone]={...(d.customers[s.phone]||{}),name:s.customer,phone:s.phone,address:s.address,source:s.source||'',date:s.date||''};
+ d.sales=d.sales||{};d.sales[recordKey]=s;d.customers=d.customers||{};d.customers[s.phone]={...(d.customers[s.phone]||{}),name:s.customer,phone:s.phone,address:s.address,source:s.source||'',date:s.date||''};
  return d;
 }
 function receiveReturn(data,key,ts){const d=clone(data),s=d.sales?.[key];if(!s?.returnStockPending||s.returnStockReceivedAt)throw Error('المرتجع تم استلامه بالفعل أو غير منتظر');adjust(d,s.stockComponents||components(s,d.bundles||{}),1);Object.assign(s,{returnStockPending:false,returnStockReceivedAt:ts,returnReceived:true,returnReceivedAt:ts,stockAllocated:false,updatedAt:ts,revision:num(s.revision)+1});return d;}
@@ -6487,7 +6487,7 @@ window.azzamsTransaction=async function(ref,change){
  return r.snapshot.val();
 };
 window.azzamsAtomic=change=>window.azzamsTransaction(db.ref(),change);
-window.azzamsSave=async function(sale,expected){if(busy)throw Error('جاري حفظ عملية أخرى');busy=true;try{return await azzamsAtomic(d=>F.save(d,sale,expected,Date.now()));}finally{busy=false;}};
+window.azzamsSave=async function(sale,expected,recordKey=sale.id){if(busy)throw Error('جاري حفظ عملية أخرى');busy=true;try{return await azzamsAtomic(d=>F.save(d,sale,expected,Date.now(),recordKey));}finally{busy=false;}};
 window.receiveCourierReturn=async function(key){if(!confirm('تأكيد استلام المرتجع فعليًا ومراجعة القطع؟'))return;try{await azzamsAtomic(d=>F.receiveReturn(d,key,Date.now()));alert('تم استلام المرتجع وتحديث المخزون');}catch(e){alert(e.message);}};
 window.v63MarkReturnReceived=window.receiveCourierReturn;
 window.confirmReturn=async function(){const key=$('return-sale-id').value,reason=$('return-reason-select').value,type=$('return-type-select').value,cost=Number($('return-cost-input').value);if(!Number.isFinite(cost)||cost<0)return alert('تكلفة المرتجع غير صحيحة');try{await azzamsAtomic(data=>{const d=F.clone(data),s=d.sales?.[key];if(!s||s.courierId||s.courierSettledAt||s.status==='مرتجع')throw Error('هذا الأوردر مرتبط بمندوب أو مغلق؛ راجع سجله');const ts=Date.now();F.history(s,s.status,'مرتجع',ts);Object.assign(s,{status:'مرتجع',returnReason:reason,returnType:type,returnCost:cost,returnStockPending:true,returnedAt:ts,updatedAt:ts,revision:n(s.revision)+1});return d;});closeModal('overlay-return');alert('تم تسجيل المرتجع؛ المخزون يتحدث عند الاستلام الفعلي.');}catch(e){alert(e.message);}};
