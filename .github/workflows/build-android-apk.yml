@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - android-apk
+      - rebuild/preparation-moderator-review
     paths:
       - 'android-app/**'
       - '.github/workflows/build-android-apk.yml'

@@ -1,1 +1,1 @@
-{"private":true,"scripts":{"test":"node moderator-products.cjs && node preparation.cjs"},"devDependencies":{"playwright":"1.51.1"}}
+{"private":true,"scripts":{"test":"node moderator-products.cjs && node preparation.cjs && node backups.cjs"},"devDependencies":{"playwright":"1.51.1"}}

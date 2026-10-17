@@ -29,3 +29,13 @@ Remaining before production use:
 - Preparation notes are excluded from courier/label rendering, not protected by a separate database permission boundary in legacy mode.
 - Audit remaining legacy creation, closing and inventory write paths as part of the broader system rewrite. Existing features were not indiscriminately deleted.
 - No recovery of old production data is claimed. Do not begin entering real replacement data using the review APKs.
+
+## Automatic device backups
+
+The admin review build now captures a complete database JSON snapshot into IndexedDB after startup, every 15 minutes while the application is open/visible, and before monthly closing. It retains the latest 48 changed snapshots plus one snapshot per day for 30 days, subject to available device storage. Payloads and metadata are stored separately so listing backups does not load all data into memory. Empty roots and disappearance of all sales/products are rejected; previous snapshots remain. Closing stops if the required local backup fails. Identical snapshots are reused.
+
+Settings includes last result, snapshot selection and JSON export. Android uses the system document picker to save the exported file outside app storage. Uninstalling/clearing app data or losing the device can lose the automatic local copies. Exports contain private business/customer/account data and must be stored privately.
+
+Cloud backup is NOT activated by installing the APK. Enable native Firebase Realtime Database daily backups in Firebase Console → Realtime Database → Backups (Blaze billing required). The app explicitly labels cloud status as unverified. Official guide: https://firebase.google.com/docs/database/backups . No billing settings, cloud scheduler, rules or production database were changed.
+
+Browser validation: `node tests/ui/backups.cjs` with the same Playwright setup. Tests check automatic capture, persistence after reload, exact JSON export, empty/missing-collection protection, deduplication and retention without writing to Firebase. Native document saving is build-checked; actual device testing remains required.

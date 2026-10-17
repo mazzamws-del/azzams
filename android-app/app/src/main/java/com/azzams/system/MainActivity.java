@@ -37,6 +37,8 @@ public class MainActivity extends Activity {
     private WebView webView;
     private ValueCallback<Uri[]> fileChooserCallback;
     private static final int FILE_CHOOSER_REQUEST = 1001;
+    private static final int BACKUP_EXPORT_REQUEST = 1003;
+    private String pendingBackupJson;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 2001;
     private static final String EVENTS_CHANNEL_ID = "azzams_events";
     private int notificationSeq = 3000;
@@ -296,6 +298,29 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void saveBackupJson(String name, String json) {
+            runOnUiThread(() -> {
+                if (!"file:///android_asset/index.html".equals(printableView.getUrl())) return;
+                if (pendingBackupJson != null) {
+                    Toast.makeText(MainActivity.this, "أكمل حفظ الملف المفتوح أولًا", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                try {
+                    new org.json.JSONObject(json);
+                    pendingBackupJson = json;
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/json");
+                    intent.putExtra(Intent.EXTRA_TITLE, name.replaceAll("[^A-Za-z0-9_.-]", "_"));
+                    startActivityForResult(intent, BACKUP_EXPORT_REQUEST);
+                } catch (Exception e) {
+                    pendingBackupJson = null;
+                    Toast.makeText(MainActivity.this, "تعذر فتح حفظ النسخة الاحتياطية", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void printPage() {
             runOnUiThread(() -> {
                 try {
@@ -330,6 +355,25 @@ public class MainActivity extends Activity {
             int resultCode,
             Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == BACKUP_EXPORT_REQUEST) {
+            final String json = pendingBackupJson;
+            pendingBackupJson = null;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && json != null) {
+                final Uri destination = data.getData();
+                new Thread(() -> {
+                    try (java.io.OutputStream stream = getContentResolver().openOutputStream(destination, "wt")) {
+                        if (stream == null) throw new java.io.IOException("No output stream");
+                        stream.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        stream.flush();
+                        runOnUiThread(() -> Toast.makeText(this, "تم حفظ النسخة الاحتياطية في المكان المختار", Toast.LENGTH_LONG).show());
+                    } catch (Exception e) {
+                        runOnUiThread(() -> Toast.makeText(this, "تعذر حفظ الملف؛ النسخة المحلية ما زالت محفوظة", Toast.LENGTH_LONG).show());
+                    }
+                }).start();
+            }
+            return;
+        }
 
         if (requestCode == FILE_CHOOSER_REQUEST && fileChooserCallback != null) {
             Uri[] results = null;
