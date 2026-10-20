@@ -9,7 +9,7 @@ function eventDay(s){const direct=s.status==='تم التوصيل'?(s.deliveredA
 function report(data,from,to){
  const result={version:1,from,to,createdOrders:0,delivered:0,returned:0,cancelled:0,pending:0,revenue:0,cogs:0,shippingMargin:0,wrapping:0,returnCost:0,expenses:0,advertising:0,profit:0,receivable:0,payable:0,estimatedDates:0,missingCosts:0,orderLines:[],expenseLines:[],days:{},groups:{governorates:{},couriers:{},moderators:{},campaigns:{},products:{}}};
  const inside=d=>d&&d>=from&&d<=to;
- function group(type,key,s,profit){key=String(key||'غير محدد');const g=result.groups[type][key]||(result.groups[type][key]={orders:0,delivered:0,revenue:0,profit:0});g.orders++;if(s.status==='تم التوصيل'){g.delivered++;g.revenue+=cents(s.revenue)-cents(s.discount);g.profit+=profit;}}
+ function group(type,key,s,profit){key=String(key||'غير محدد');const g=result.groups[type][key]||(result.groups[type][key]={orders:0,delivered:0,revenue:0,profit:0});g.orders++;if(s.status==='تم التوصيل'){g.delivered++;g.revenue+=cents(s.revenue)-cents(s.discount);}g.profit+=profit;}
  for(const[id,s]of Object.entries(data.sales||{})){
   if(inside(day(s.date))){result.createdOrders++;if(!terminal(s))result.pending++;}
   if(s.courierResult&&!s.courierSettledAt){const collected=cents(s.customerCollectedAmount??s.courierCollectedAmount),fee=cents(s.courierShippingFee??(s.courierResult==='cancelled'?0:s.actualShippingCost??s.shipping));result.receivable+=s.storeDueFromCourier!=null?cents(s.storeDueFromCourier):Math.max(0,collected-fee);result.payable+=s.courierDueFromStore!=null?cents(s.courierDueFromStore):Math.max(0,fee-collected);}
@@ -22,8 +22,8 @@ function report(data,from,to){
   line.profit=line.revenue-line.cogs+line.shippingMargin-line.wrapping-line.returnCost;
   for(const k of ['revenue','cogs','shippingMargin','wrapping','returnCost'])result[k]+=line[k];
   result.orderLines.push(line);const daily=result.days[ev.date]||(result.days[ev.date]={revenue:0,profit:0,orders:0});daily.revenue+=line.revenue;daily.profit+=line.profit;daily.orders++;
-  for(const[type,key]of [['governorates',s.gov],['couriers',s.courierId],['moderators',s.moderatorId],['campaigns',s.campaignId]])group(type,key,s,line.profit);
-  for(const i of s.items||[]){const key=i.name||i.id||'غير محدد',g=result.groups.products[key]||(result.groups.products[key]={qty:0,revenue:0});if(s.status==='تم التوصيل'){g.qty+=Number(i.qty)||0;g.revenue+=cents(i.price)*(Number(i.qty)||0);}}
+  for(const[type,key]of [['governorates',s.gov],['couriers',s.courierId],['moderators',s.sellerId||s.moderatorId],['campaigns',s.campaignId]])group(type,key,s,line.profit);
+  for(const i of s.items||[]){const key=i.commName||i.name||i.id||'غير محدد',g=result.groups.products[key]||(result.groups.products[key]={qty:0,revenue:0});if(s.status==='تم التوصيل'){g.qty+=Number(i.qty)||0;g.revenue+=cents(i.price)*(Number(i.qty)||0);}}
  }
  for(const[id,e]of Object.entries(data.expenses||{}))if(inside(day(e.date))){const amount=cents(e.amount);result.expenses+=amount;if(e.campaignId)result.advertising+=amount;result.expenseLines.push({id,date:day(e.date),amount,category:e.category||'',desc:e.desc||'',campaignId:e.campaignId||''});const d=result.days[day(e.date)]||(result.days[day(e.date)]={revenue:0,profit:0,orders:0});d.profit-=amount;}
  result.profit=result.revenue-result.cogs+result.shippingMargin-result.wrapping-result.returnCost-result.expenses;return result;
