@@ -17,3 +17,17 @@ function decorate(){for(const [id,meta]of Object.entries(pages)){const root=$('s
 function boot(){document.body.classList.add('ri-interiors');decorate();for(const name of ['showSection','updateUI','renderCourierAdmin','renderModeratorsAdmin','renderCampaigns','v68EnsureModal']){const old=window[name];if(typeof old!=='function')continue;window[name]=function(){const r=old.apply(this,arguments);decorate();return r;};}let pending=false;new MutationObserver(ms=>{if(!ms.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches('tr,.section,#v68-edit-overlay')||n.querySelector('tbody')))))return;if(!pending){pending=true;requestAnimationFrame(()=>{pending=false;decorate();});}}).observe(document.body,{childList:true,subtree:true});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,20));else boot();
 })();
+
+// Observe all close paths (including Android back and notification replacement).
+(function(){
+ let locked=false,position=null;
+ function syncDialogScroll(){
+  const open=!!document.querySelector('.v68-edit-overlay.open,.modal-overlay.open,dialog[open]');
+  if(open===locked)return;locked=open;
+  if(open){position={x:scrollX,y:scrollY,styles:['position','top','left','right','width'].map(k=>[k,document.body.style.getPropertyValue(k),document.body.style.getPropertyPriority(k)])};document.body.style.position='fixed';document.body.style.top=-position.y+'px';document.body.style.left=-position.x+'px';document.body.style.right='0';document.body.style.width='100%';}
+  document.documentElement.classList.toggle('az-dialog-open',open);document.body.classList.toggle('az-dialog-open',open);
+  if(!open&&position){for(const[k,v,p]of position.styles){if(v)document.body.style.setProperty(k,v,p);else document.body.style.removeProperty(k);}window.scrollTo(position.x,position.y);position=null;}
+ }
+ function init(){new MutationObserver(syncDialogScroll).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','open']});syncDialogScroll();}
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();

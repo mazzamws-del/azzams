@@ -1,6 +1,6 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./preparation-core.js'));else root.AzzamsPrepBatches=factory(root.AzzamsPreparation);})(globalThis,function(P){
 'use strict';
-function unavailable(s){if(!s)return 'غير موجود في البيانات الحالية';if(s.monthlyArchiveId)return 'مؤرشف';if(s.packedAt)return 'تم تجهيزه بالفعل';if(['مع المندوب','تم التوصيل','مرتجع','ملغي'].includes(s.status))return 'حالته: '+s.status;if(s.confirmed!==true)return 'يحتاج تأكيد العميل أولًا';return '';}
+function unavailable(s){if(!s)return 'غير موجود في البيانات الحالية';if(s.monthlyArchiveId)return 'مؤرشف';if(s.packedAt)return 'تم تجهيزه بالفعل';if(['مع المندوب','تم التوصيل','مرتجع','ملغي'].includes(s.status))return 'حالته: '+s.status;return '';}
 const eligible=s=>!unavailable(s);
 // Compare only preparation fields in a fixed order: Firebase can reorder object keys.
 const signature=s=>JSON.stringify([(s.items||[]).map(i=>[String(i.id||''),String(i.commName||i.name||''),Number(i.qty||0),!!i.isBundle,String(i.preparationNote||''),i.preparationNote?Number(i.customizationQty??1):0]),s.items?.length?'':String(s.commName||s.name||''),s.items?.length?0:Number(s.qty||0),String(s.notes||''),String(s.giftMessage||''),!!s.freeWrapping]);

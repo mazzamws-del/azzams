@@ -58,3 +58,8 @@ Remaining production gates: actual Firebase SDK/emulator concurrent-client and r
 The sales-list preparation action previously submitted unconfirmed, packed and stale selected orders directly to batch creation, causing a generic rejection. It now reads the current records, displays eligible count and explicit per-order exclusion reasons, and asks to proceed with that exact eligible subset. All-already-grouped selections reopen their existing group. The transaction still rechecks eligibility and membership and names the affected order on a race; it never changes confirmation/status to bypass a check. Picking counts are retained.
 
 Preparation signatures now compare fixed, relevant fields rather than JSON property insertion order or price fields, avoiding false change detection after Firebase serialization. Actual quantity, model, customization and packing-instruction changes still freeze further picking. The primary action is renamed “بدء تجهيز الطلبات”.
+
+## 1.17.2 review — preparation without customer confirmation gate
+Remove the unsupported mandatory confirmed flag from batch eligibility and distribution cards. Existing confirmation metadata is preserved, never set automatically. Preparing orders with missing/false/true confirmed values is supported; archived, packed, cancelled, returned, shipped and delivered orders remain excluded from new batches. Tests cover missing confirmation through picking, distribution and packing without setting confirmation.
+
+Editor scroll fix: bounded flex layout, independently scrolling content, persistent header/actions, background scroll locking and restoration on all modal close paths. Browser checks cover mobile/desktop wheel scroll and lock release.

@@ -5,6 +5,8 @@ d.sales.a.items[0].qty=3;assert.deepEqual(B.changes(d.preparation_batches.batch,
 console.log('PASS fixed batches, duplicate prevention, saved counts, stale writes, changed order freeze, explicit cancellation, archive and no stock/order/expense mutations');
 
 const source={sales:{a:{id:'100',confirmed:true,status:'قيد التجهيز',items:[{name:'محفظة',qty:1,id:'p',price:100}]},b:{id:'200',confirmed:false,status:'قيد التجهيز'},c:{id:'300',confirmed:true,packedAt:1}}};
-assert.deepEqual(B.preview(source,['a','b','c','missing']).ready,['a']);assert.equal(B.preview(source,['b']).excluded[0].reason,'يحتاج تأكيد العميل أولًا');assert.throws(()=>B.create(source,['b'],'bad',1),/#200.*تأكيد/);
+assert.deepEqual(B.preview(source,['a','b','c','missing']).ready,['a','b']);assert.equal(B.preview(source,['b']).excluded.length,0);
+for(const confirmed of [undefined,false,true]){const data={sales:{x:{status:'قيد التجهيز',items:[{id:'p',name:'محفظة',qty:1}]}}};if(confirmed!==undefined)data.sales.x.confirmed=confirmed;const before=JSON.stringify(data.sales);B.create(data,['x'],'test',1);assert.equal(JSON.stringify(data.sales),before);assert.deepEqual(B.changes(data.preparation_batches.test,data.sales),[]);}
+for(const status of ['مع المندوب','تم التوصيل','مرتجع','ملغي'])assert.equal(B.eligible({status}),false);
 B.create(source,['a'],'one',1);source.sales.a.items=[{price:110,id:'p',qty:1,name:'محفظة'}];assert.deepEqual(B.changes(source.preparation_batches.one,source.sales),[]);source.sales.a.items[0].qty=2;assert.deepEqual(B.changes(source.preparation_batches.one,source.sales),['a']);assert.ok(B.changeText(source.preparation_batches.one,source.sales).includes('#100'));
 console.log('PASS explicit eligibility reasons, mixed selection preflight, stable preparation-only signature, real quantity change detection');
