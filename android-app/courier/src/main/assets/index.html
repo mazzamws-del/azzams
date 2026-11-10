@@ -187,7 +187,7 @@ function phone(v){v=latinDigits(v).replace(/[^0-9+]/g,'');if(v.startsWith('+20')
 function wa(v){let x=phone(v).replace(/\D/g,'');if(x.startsWith('0'))x='2'+x;return x}
 function localDate(ts){const d=ts?new Date(ts):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return localDate(d)}
-function expectedCOD(s){const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,Math.round((total-pre)*100)/100)}
+function expectedCOD(s){if(globalThis.AzzamsOps&&AzzamsOps.exchange(s))return AzzamsOps.due(s);const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,Math.round((total-pre)*100)/100)}
 function customerShipping(s){return s.freeShipping?0:num(s.shipping)}
 function courierFee(s){return Math.max(0,num(s.actualShippingCost!=null?s.actualShippingCost:s.shipping))}
 function money(v){return num(v).toLocaleString('ar-EG',{maximumFractionDigits:2})+' ج'}
