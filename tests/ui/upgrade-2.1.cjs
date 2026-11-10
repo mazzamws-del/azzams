@@ -6,7 +6,7 @@ const stub=`window.__fixture=${JSON.stringify(fixture)};window.__calls=[];window
 
 
 if((process.env.TEST_APP||'app')==='app'){
-await page.evaluate(()=>{salesData.a={...salesData.a,orderType:'replacement',exchangeVersion:1,exchangeDifference:0,exchangeReturnDescription:'محفظة قديمة سوداء',shipping:0};});
+await page.evaluate(()=>{salesData.a={...salesData.a,orderType:'replacement',exchangeVersion:1,exchangeDifference:0,exchangeReturnDescription:'محفظة قديمة سوداء',shipping:0};__fixture.sales.a=JSON.parse(JSON.stringify(salesData.a));});
 const opened=page.waitForEvent('popup');await page.evaluate(()=>printInvoice('a'));const label=await opened;await label.waitForLoadState();assert.ok((await label.locator('body').innerText()).includes('استبدال'));assert.ok((await label.locator('body').innerText()).includes('بدون تحصيل'));assert.ok((await label.locator('body').innerText()).includes('محفظة قديمة سوداء'));assert.ok(!(await label.locator('.sl-payment-box').innerText()).includes('مدفوع بالكامل'));await label.close();
 await page.evaluate(()=>{editSale('a');});await page.waitForTimeout(200);assert.equal(await page.locator('#v68-exchange-diff').inputValue(),'0');await page.locator('#v68-exchange-diff').fill('-100');await page.evaluate(()=>v68SaveEdit());await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>__fixture.sales.a.exchangeRefund),100);assert.equal(await page.evaluate(()=>__fixture.sales.a.deposit||0),0);assert.equal(await page.evaluate(()=>__fixture.sales.a.paymentMethod),'Exchange');
 }else{
