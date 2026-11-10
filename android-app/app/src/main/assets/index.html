@@ -981,7 +981,7 @@ tbody tr:hover{background:#fafbfc}
 }
 .azzams-logo-pulse{background:#F3E9DC!important;padding:8px!important}.azzams-logo-pulse svg,.azzams-brand-mark svg{width:100%;height:100%}.azzams-brand-mark{background:#F3E9DC!important;padding:5px!important}
 </style>
-</head>
+<script src="ops-core.js"></script></head>
 <body>
 
 <!-- Login Screen -->
@@ -1943,7 +1943,7 @@ tbody tr:hover{background:#fafbfc}
     <div class="modal-box">
         <button class="modal-close" onclick="closeModal('overlay-exchange')">✕</button>
         <div class="modal-title">🔄 إعداد أوردر استبدال</div>
-        <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:16px;">سيتم إرجاع المنتج القديم للمخزن وفتح السلة بالمنتج الجديد.</p>
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:16px;">سيتم إنشاء أوردر استبدال مرتبط بالأصلي. المرتجع لا يدخل المخزون إلا بعد استلامه وفحصه.</p>
         <input type="hidden" id="exc-sale-id">
         <label class="field-label">المنتج البديل</label>
         <select id="exc-new-product" style="margin-bottom:12px;" onchange="updateExchangePreview()"></select>
@@ -4230,7 +4230,7 @@ function printDigitalInvoice(key) {
     .ftr{text-align:center;margin-top:40px;color:#64748b;font-weight:600;font-size:14px;border-top:1px solid #e2e8f0;padding-top:20px;}
     @media print{@page{size:A4;margin:12mm;} body{background:#fff!important;padding:0!important;} .wrap{box-shadow:none!important;border:none!important;border-top:10px solid ${brand}!important;padding:0!important;max-width:100%!important;}}</style>
     </head><body><div class="wrap">
-    <div class="hdr"><div>${logoHtml}<h1>فاتورة إلكترونية</h1></div><div class="meta" style="text-align:left;"><p style="font-size:18px;"><strong>رقم الطلب:</strong> #${key.slice(-5)}</p><p><strong>تاريخ الإصدار:</strong> ${s.date}</p></div></div>
+    <div class="hdr"><div>${logoHtml}<h1>${s.orderType==='replacement'?'فاتورة استبدال':'فاتورة إلكترونية'}</h1></div><div class="meta" style="text-align:left;"><p style="font-size:18px;"><strong>رقم الطلب:</strong> #${key.slice(-5)}</p><p><strong>تاريخ الإصدار:</strong> ${s.date}</p></div></div>
     <div class="grid">
         <div class="card"><h3>👤 بيانات العميل</h3><p>الاسم: ${s.customer}</p><p dir="ltr">الهاتف: ${normalizePhoneStr(s.phone)}</p>${phone2Line}</div>
         <div class="card"><h3>📍 تفاصيل الشحن</h3><p>المحافظة: ${s.gov || '—'}</p><p>العنوان: ${s.address || '—'}</p></div>
@@ -4243,7 +4243,7 @@ function printDigitalInvoice(key) {
             <p style="margin:0;color:#065f46;font-size:14px;font-weight:600;">ضمان ممتد لمدة 90 يوماً<br>ينتهي في: <strong>${warrantyEnd.toISOString().split('T')[0]}</strong></p>
         </div>
         <div class="totals">
-            <div class="row"><span>إجمالي المنتجات:</span><span>${s.revenue} ج.م</span></div>
+            <div class="row"><span>${s.orderType==='replacement'?'فرق سعر الاستبدال:':'إجمالي المنتجات:'}</span><span>${s.revenue} ج.م</span></div>
             <div class="row"><span>مصاريف الشحن:</span><span>${shippingStr}</span></div>
             ${s.deposit ? `<div class="row" style="color:#10b981;"><span>مدفوع مقدماً:</span><span>${s.deposit} ج.م</span></div>` : ''}
             ${s.discount ? `<div class="row" style="color:#ef4444;"><span>خصم إضافي:</span><span>−${s.discount} ج.م</span></div>` : ''}
@@ -5301,6 +5301,8 @@ function normalizedItems(s){
   return [{name:s.name||'منتج',qty:s.qty||1}];
 }
 function labelHTML(key,s,logoSrc,storeName,footerText){
+  s=window.AzzamsOps?AzzamsOps.normalize(s):s;
+  var isExchange=s.orderType==='replacement'||s.paymentMethod==='Exchange';
   var shipping=s.freeShipping?0:num(s.shipping);
   var prepaid=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);
   var total=Math.max(0,num(s.revenue)+shipping-num(s.discount)-prepaid);
@@ -5318,7 +5320,8 @@ function labelHTML(key,s,logoSrc,storeName,footerText){
   var payment=paid
     ? '<div class="sl-paid-only">مدفوع بالكامل</div><div class="sl-paid-sub">لا يوجد تحصيل نقدي</div>'
     : '<div class="sl-cod-label">المطلوب عند الاستلام</div><div class="sl-cod">'+Math.round(total).toLocaleString('ar-EG')+'<small>ج.م</small></div><div class="sl-payment">COD عند التسليم</div>';
-  var qr=window.AzzamsThermal.qr('ORD:'+orderRef+'|'+phone(s.phone||'')+'|'+(paid?'PAID':'COD:'+total));
+  if(isExchange)payment='<div class="sl-paid-only">استبدال</div><div class="sl-paid-sub">تسليم البديل مقابل استلام المرتجع</div>'+(AzzamsOps.netDue(s)<0?'<div class="sl-payment">رد للعميل '+Math.abs(AzzamsOps.netDue(s)).toLocaleString('ar-EG')+' ج.م</div>':AzzamsOps.netDue(s)===0?'<div class="sl-payment">بدون تحصيل</div>':'<div class="sl-cod-label">فرق السعر والشحن</div><div class="sl-cod">'+AzzamsOps.due(s).toLocaleString('ar-EG')+'<small>ج.م</small></div>')+'<div class="sl-paid-sub">يُستلم: '+esc(s.exchangeReturnDescription||'المنتج المستبدل')+'</div>';
+  var qr=window.AzzamsThermal.qr('ORD:'+orderRef+'|'+phone(s.phone||'')+'|'+(isExchange?'EXCHANGE:'+AzzamsOps.netDue(s):(paid?'PAID':'COD:'+total)));
   return '<section class="ship-label'+(items.length>4?' dense':'')+'">'+
     '<header class="sl-head"><div class="sl-brand">'+logo+'<span>SHIPPING LABEL</span></div><div class="sl-order"><small>ORDER</small><strong>#'+esc(orderRef)+'</strong><span>'+esc(s.date||'')+'</span></div></header>'+
     '<div class="sl-body"><main class="sl-main"><div class="sl-recipient"><div class="sl-to-title">بيانات المستلم</div><div class="sl-name">'+esc(s.customer||'—')+'</div><div class="sl-phone" dir="ltr">'+esc(phone(s.phone||''))+(s.phone2?'  |  '+esc(phone(s.phone2)):'')+'</div><div class="sl-address">'+esc(addr||'لا يوجد عنوان مسجل')+'</div>'+labelTags+'</div><div class="sl-goods"><div class="sl-items-title"><span>محتويات الطلب</span><b>'+items.reduce(function(a,i){return a+(num(i.qty)||1)},0)+' قطعة</b></div><div class="sl-items">'+rows+'</div></div></main>'+
@@ -5449,7 +5452,7 @@ function v68EnsureModal(){
  <div class="v68-card"><div class="v68-card-title">المنتجات <span>تقدر تغير الكمية أو تضيف/تحذف صنف</span></div><div id="v68-edit-items"></div><div class="v68-add-item"><input id="v68-add-product" list="v68-product-list" placeholder="اختار منتج من المخزن"><datalist id="v68-product-list"></datalist><input type="number" id="v68-add-qty" min="1" value="1"><button type="button" class="btn btn-ghost" onclick="v68AddEditItem()">+ إضافة</button></div><div class="v68-edit-summary" id="v68-edit-cart-summary"></div></div>
  <div class="v68-card"><div class="v68-card-title">الشحن والتحصيل <span>الحساب يتحدث تلقائيًا</span></div><div class="v68-grid">
  <div class="v68-field"><label>شحن العميل</label><input type="number" id="v68-shipping"></div><div class="v68-field"><label>الشحن الحقيقي</label><input type="number" id="v68-real-shipping"></div><div class="v68-field"><label>مدفوع مسبقًا</label><input type="number" id="v68-prepaid"></div><div class="v68-field"><label>خصم</label><input type="number" id="v68-discount"></div>
- <div class="v68-field"><label>طريقة الدفع</label><select id="v68-payment"><option>COD</option><option>InstaPay</option><option>Vodafone Cash</option><option>Bank Transfer</option><option>Cash</option><option>Mixed</option></select></div><div class="v68-field"><label>الحالة</label><select id="v68-status"><option>قيد التجهيز</option><option>متابعة</option><option>مع المندوب</option><option>تم التوصيل</option><option>ملغي</option><option>استبدال</option><option>مرتجع</option></select></div><div class="v68-field"><label>المصدر</label><select id="v68-source"><option>تيك توك</option><option>فيسبوك</option><option>انستجرام</option><option>واتساب</option><option>إحالة صديق</option><option>أخرى</option></select></div><div class="v68-field"><label>نوع الأوردر</label><select id="v68-order-type"><option value="normal">تسليم عادي</option><option value="replacement">استبدال</option></select></div>
+ <div class="v68-field"><label>طريقة الدفع</label><select id="v68-payment"><option>COD</option><option value="Exchange">استبدال</option><option>InstaPay</option><option>Vodafone Cash</option><option>Bank Transfer</option><option>Cash</option><option>Mixed</option></select></div><div class="v68-field"><label>الحالة</label><select id="v68-status"><option>قيد التجهيز</option><option>متابعة</option><option>مع المندوب</option><option>تم التوصيل</option><option>ملغي</option><option>استبدال</option><option>مرتجع</option></select></div><div class="v68-field"><label>المصدر</label><select id="v68-source"><option>تيك توك</option><option>فيسبوك</option><option>انستجرام</option><option>واتساب</option><option>إحالة صديق</option><option>أخرى</option></select></div><div class="v68-field"><label>نوع الأوردر</label><select id="v68-order-type"><option value="normal">تسليم عادي</option><option value="replacement">استبدال</option></select></div>
  <div class="v68-field"><label><input type="checkbox" id="v68-free-shipping" onchange="v68EditAutoShipping()" style="width:auto;margin-left:5px"> شحن مجاني للعميل</label></div><div class="v68-field"><label><input type="checkbox" id="v68-free-wrap" style="width:auto;margin-left:5px"> تغليف هدية</label></div><div class="v68-span2" id="v68-edit-ship-info"></div>
  </div></div>
  <div class="v68-card"><div class="v68-card-title">ليبلات وملاحظات</div><div id="v68-edit-labels" class="v68-labels"></div><div class="v68-field" style="margin-top:10px"><label>💌 رسالة الهدية</label><textarea id="v68-gift-message" rows="3" placeholder="الرسالة اللي هتتحط جوه الهدية"></textarea></div><div class="v68-field" style="margin-top:10px"><label>ملاحظات التشغيل</label><textarea id="v68-notes" rows="2"></textarea></div></div>
@@ -6342,7 +6345,7 @@ window.addEventListener('DOMContentLoaded',function(){
       const result=resultLabel(s.courierResult)||postponedText||(s.status==='مع المندوب'?'🚚 مع المندوب':s.status||'—');
       const note=[s.courierNote,s.courierPostponeNote].filter(Boolean).join(' — ');
       const act=s.returnStockPending?'<button class="btn btn-success btn-sm" onclick="receiveCourierReturn(\''+k+'\')">📦 استلام للمخزن</button>':(!s.courierResult?'<button class="btn btn-danger btn-sm" onclick="unassignCourier(\''+k+'\')">إلغاء التعيين</button>':'');
-      return '<tr><td><b>#'+esc(k.slice(-6))+'</b><div style="font-size:.7rem;color:var(--text-muted)">'+esc(s.date||'')+'</div></td><td><b>'+esc(s.courierName||'—')+'</b></td><td><b>'+esc(s.customer||'—')+'</b><div dir="ltr" style="font-size:.76rem;color:var(--text-muted)">'+esc(phone(s.phone))+'</div></td><td><span class="courier-result-pill">'+esc(result)+'</span></td><td><b>'+money(s.courierResult?m.collected:expectedCOD(s))+'</b></td><td><b style="color:var(--success)">'+money(m.storeDue)+'</b>'+(m.courierDue>0?'<div style="font-size:.68rem;color:var(--warning)">له عندي '+money(m.courierDue)+'</div>':'')+'<div style="font-size:.68rem;color:'+(s.courierSettledAt?'var(--success)':'var(--warning)')+'">'+(s.courierResult?(s.courierSettledAt?'تمت التسوية':'غير مسوّى'):'—')+'</div></td><td style="max-width:210px;white-space:normal;font-size:.78rem">'+esc(note||'—')+'</td><td>'+act+'</td></tr>';
+      return '<tr><td><b>#'+esc(k.slice(-6))+'</b><div style="font-size:.7rem;color:var(--text-muted)">'+esc(s.date||'')+'</div></td><td><b>'+esc(s.courierName||'—')+'</b></td><td><b>'+esc(s.customer||'—')+'</b><div dir="ltr" style="font-size:.76rem;color:var(--text-muted)">'+esc(phone(s.phone))+'</div><div style="white-space:normal;min-width:220px;line-height:1.8">'+esc([s.gov,s.area,s.address].filter(Boolean).join(' — '))+'<br>'+((s.items||[]).map(i=>'<b>'+esc(i.commName||i.name)+' × '+num(i.qty)+'</b>').join('<br>'))+(s.phone2?'<br>رقم إضافي: '+esc(s.phone2):'')+(s.notes?'<br>ملاحظات: '+esc(s.notes):'')+(s.giftMessage?'<br>رسالة الهدية: '+esc(s.giftMessage):'')+(s.orderType==='replacement'?'<div class="exchange-tag">استبدال — يُستلم: '+esc(s.exchangeReturnDescription||'راجع الأصل')+'<br>الأوردر الأصلي: '+esc(s.exchangeOriginalId||'غير مرتبط')+'</div>':'')+'</div><button class="btn btn-ghost btn-sm" onclick="editSale(\''+k+'\')">فتح كل البيانات</button>'+(s.orderType==='replacement'&&s.exchangeCollectedAt&&!s.exchangeReturnReceived?'<button class="btn btn-success btn-sm" onclick="azzamsReceiveExchange(\''+k+'\')">استلام وفحص البديل الراجع</button>':'')+'</td><td><span class="courier-result-pill">'+esc(result)+'</span></td><td><b>'+money(s.courierResult?m.collected:expectedCOD(s))+'</b></td><td><b style="color:var(--success)">'+money(m.storeDue)+'</b>'+(m.courierDue>0?'<div style="font-size:.68rem;color:var(--warning)">له عندي '+money(m.courierDue)+'</div>':'')+'<div style="font-size:.68rem;color:'+(s.courierSettledAt?'var(--success)':'var(--warning)')+'">'+(s.courierResult?(s.courierSettledAt?'تمت التسوية':'غير مسوّى'):'—')+'</div></td><td style="max-width:210px;white-space:normal;font-size:.78rem">'+esc(note||'—')+'</td><td>'+act+'</td></tr>';
     }).join('')||'<tr><td colspan="8" style="text-align:center;padding:28px;color:var(--text-muted)">لا توجد أوردرات للمندوبين</td></tr>';
   };
 
@@ -6369,6 +6372,7 @@ const current=s=>!closed(s)||!s.courierSettledAt||!!s.returnStockPending;
 const canonical=v=>JSON.stringify(sort(v));
 function sort(v){if(Array.isArray(v))return v.map(sort);if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,sort(v[k])]));return v;}
 function validate(s){
+ if(globalThis.AzzamsOps)Object.assign(s,AzzamsOps.normalize(s));
  if(!/^01[0125]\d{8}$/.test(s.phone||''))throw Error('رقم الموبايل المصري غير صحيح');
  if(!s.customer||!s.gov||!s.address)throw Error('الاسم والمحافظة والعنوان مطلوبين');
  for(const k of ['revenue','cogs','shipping','actualShippingCost','discount','prepaidAmount','deposit'])if(s[k]!=null&&(!Number.isFinite(Number(s[k]))||Number(s[k])<0))throw Error('المبالغ يجب أن تكون أرقامًا موجبة أو صفر');
@@ -6598,5 +6602,5 @@ if(isMod){
 <script src="backups.js"></script>
 <script src="analytics-core.js"></script>
 <script src="analytics-ui.js"></script>
-</body>
+<script src="shifts-ui.js"></script><script>window.addEventListener("DOMContentLoaded",function(){const s=document.createElement("script");s.src="exchange-admin.js";document.body.append(s);});</script><script src="exchange-receive.js"></script></body>
 </html>

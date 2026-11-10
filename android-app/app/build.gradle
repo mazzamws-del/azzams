@@ -11,8 +11,8 @@ android {
         applicationId 'com.azzams.system'
         minSdk 24
         targetSdk 35
-        versionCode 34
-        versionName '1.17.2-review'
+        versionCode 40
+        versionName '2.1.0'
     }
 }
 

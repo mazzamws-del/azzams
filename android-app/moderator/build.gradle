@@ -10,7 +10,7 @@ android {
         applicationId 'com.azzams.moderator'
         minSdk 24
         targetSdk 35
-        versionCode 9
-        versionName '1.5.0-review'
+        versionCode 40
+        versionName '2.1.0'
     }
 }

@@ -19,6 +19,7 @@ function apply(data,key,expected,actor,patch,rows,ts,F,P){
   P.details(item);return item;
  });
  const order={...old,...patch,items,qty:items.reduce((n,i)=>n+i.qty,0),name:items.map(i=>i.commName+' ×'+i.qty).join(' + '),revenue:money(items.reduce((n,i)=>n+i.price*i.qty,0)),cogs:money(items.reduce((n,i)=>n+i.cost*i.qty,0)),updatedAt:ts,moderatorEditedAt:ts,revision:F.num(old.revision)+1};
+ Object.assign(order,globalThis.AzzamsOps ? AzzamsOps.normalize(order) : order);
  F.validate(order);
  const before=F.held(old)?old.stockComponents||F.components(old,d.bundles||{}):{},after=F.components(order,d.bundles||{});
  for(const id of new Set([...Object.keys(before),...Object.keys(after)])){
@@ -27,7 +28,7 @@ function apply(data,key,expected,actor,patch,rows,ts,F,P){
  }
  order.stockAllocated=true;order.stockComponents=after;
  const total=money(order.revenue+(order.freeShipping?0:Number(order.shipping))-Number(order.discount||0)),pre=Number(order.prepaidAmount??order.deposit??0);
- order.paymentMethod=pre>=total&&total>0?'Prepaid':pre>0?'Mixed':'COD';
+ order.paymentMethod=order.orderType==='replacement'?'Exchange':pre>=total&&total>0?'Prepaid':pre>0?'Mixed':'COD';
  const eventId='edit_'+key+'_'+order.revision;
  d.moderator_events=d.moderator_events||{};d.moderator_events[eventId]={id:eventId,type:'edit_order',orderId:key,moderatorId:actor.id,moderatorName:actor.name||'',customer:order.customer,timestamp:ts,date:order.date||'',beforeItems:old.items||[],afterItems:items};
  d.sales[key]=order;d.customers=d.customers||{};d.customers[order.phone]={...(d.customers[order.phone]||{}),name:order.customer,phone:order.phone,address:order.address,source:order.source||'',date:order.date||''};
