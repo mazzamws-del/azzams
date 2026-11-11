@@ -56,6 +56,13 @@ jobs:
           node moderator-products.cjs
           node preparation.cjs
 
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: UI-Review-Fixtures
+          path: /tmp/azzams-*.png
+          retention-days: 3
+
       - name: Build all APKs
         run: gradle :app:assembleDebug :courier:assembleDebug :moderator:assembleDebug
 
