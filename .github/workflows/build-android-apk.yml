@@ -51,7 +51,9 @@ jobs:
         working-directory: tests/ui
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          AZZAMS_CHROMIUM="$(command -v google-chrome || command -v chromium || true)"
+          export AZZAMS_CHROMIUM
+          if [ -z "$AZZAMS_CHROMIUM" ]; then npx playwright install --with-deps chromium; fi
           timeout 90s node upgrade-2.1.cjs
           TEST_APP=courier timeout 90s node upgrade-2.1.cjs
           timeout 90s node moderator-products.cjs
