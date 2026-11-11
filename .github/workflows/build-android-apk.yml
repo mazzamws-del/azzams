@@ -47,14 +47,15 @@ jobs:
         run: cd .. && node tests/finance.test.cjs && node tests/transactions.test.cjs && node tests/preparation.test.cjs && node tests/analytics.test.cjs && node tests/preparation-batches.test.cjs && node tests/upgrade-2.1.cjs
 
       - name: Browser tests on isolated fixtures
+        timeout-minutes: 6
         working-directory: tests/ui
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          node upgrade-2.1.cjs
-          TEST_APP=courier node upgrade-2.1.cjs
-          node moderator-products.cjs
-          node preparation.cjs
+          timeout 90s node upgrade-2.1.cjs
+          TEST_APP=courier timeout 90s node upgrade-2.1.cjs
+          timeout 90s node moderator-products.cjs
+          timeout 90s node preparation.cjs
 
       - uses: actions/upload-artifact@v4
         if: always()

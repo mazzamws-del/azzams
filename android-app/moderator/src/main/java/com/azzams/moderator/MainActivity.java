@@ -25,6 +25,8 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
     private WebView webView;
+    private static final int SHIFT_EXPORT_REQUEST = 1004;
+    private String pendingShiftCsv;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 2101;
     private static final String CHANNEL_ID = "azzams_moderator_orders";
     private int notificationSeq = 5000;
@@ -137,8 +139,53 @@ public class MainActivity extends Activity {
 
     private class AndroidBridge {
         @JavascriptInterface
+        public void saveShiftCsv(String name, String csv) {
+            runOnUiThread(() -> {
+                if (!"file:///android_asset/index.html".equals(webView.getUrl()) || csv == null || csv.length() > 5000000) return;
+                if (pendingShiftCsv != null) {
+                    Toast.makeText(MainActivity.this, "أكمل حفظ التقرير المفتوح أولًا", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                try {
+                    pendingShiftCsv = csv;
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("text/csv");
+                    intent.putExtra(Intent.EXTRA_TITLE, name.replaceAll("[^A-Za-z0-9_.-]", "_"));
+                    startActivityForResult(intent, SHIFT_EXPORT_REQUEST);
+                } catch (Exception e) {
+                    pendingShiftCsv = null;
+                    Toast.makeText(MainActivity.this, "تعذر فتح حفظ التقرير", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void notifyEvent(String title, String body) {
             runOnUiThread(() -> showNativeNotification(title, body));
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SHIFT_EXPORT_REQUEST) {
+            final String csv = pendingShiftCsv;
+            pendingShiftCsv = null;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && csv != null) {
+                final Uri destination = data.getData();
+                new Thread(() -> {
+                    try (java.io.OutputStream stream = getContentResolver().openOutputStream(destination, "wt")) {
+                        if (stream == null) throw new java.io.IOException("No output stream");
+                        stream.write(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        stream.flush();
+                        runOnUiThread(() -> Toast.makeText(this, "تم حفظ تقرير الشيفتات", Toast.LENGTH_LONG).show());
+                    } catch (Exception e) {
+                        runOnUiThread(() -> Toast.makeText(this, "تعذر حفظ التقرير. حاول التصدير مرة أخرى", Toast.LENGTH_LONG).show());
+                    }
+                }).start();
+            }
+            return;
         }
     }
 
