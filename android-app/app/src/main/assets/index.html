@@ -2960,8 +2960,8 @@ function getStatusClass(status) {
 function generateSaleRow([key, s], isDelivered) {
     const cbClass = isDelivered ? 'delivered-cb' : 'sale-cb';
     const cbCount = isDelivered ? 'updateDeliveredCount()' : 'updateSelectedCount()';
-    const total = (s.revenue || 0) + (s.shipping || 0) - (s.discount || 0);
-    const required = total - (s.deposit || 0);
+    const total = (s.revenue || 0) - (s.exchangeRefund || 0) + (s.freeShipping ? 0 : (s.shipping || 0)) - (s.discount || 0);
+    const required = window.AzzamsOps?.exchange(s) ? AzzamsOps.netDue(s) : total - (s.prepaidAmount ?? s.deposit ?? 0);
     const statusCls = getStatusClass(s.status);
 
     let displayNames = '';
@@ -5921,7 +5921,7 @@ window.addEventListener('DOMContentLoaded',function(){
   function productSearchText(s){return Array.isArray(s.items)?s.items.map(i=>(i.commName||'')+' '+(i.name||'')+' '+(i.stockName||'')).join(' '):(s.name||'')}
   function statusClass(st){if(st==='قيد التجهيز')return 'prep';if(st==='متابعة')return 'follow';if(st==='مع المندوب')return 'courier';if(st==='استبدال')return 'exchange';return ''}
   function cardClass(st){const c=statusClass(st);return c?'status-'+c:''}
-  function dueOf(s){const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,total-pre)}
+  function dueOf(s){if(window.AzzamsOps?.exchange(s))return AzzamsOps.due(s);const total=num(s.revenue)+(s.freeShipping?0:num(s.shipping))-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,total-pre)}
   function ageText(s){
     const ts=num(s.timestamp);if(!ts)return s.date||'';
     const days=Math.floor((Date.now()-ts)/86400000);
