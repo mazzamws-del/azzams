@@ -5,3 +5,17 @@ assert.throws(()=>C.pay(d,'m','p2',11000,at));assert.throws(()=>C.saveRule(d,'m'
 d=C.addBonus(d,'m','b1',{amount:25,reason:'جودة المتابعة',date:'2026-11-14'},at);assert.equal(C.report(d,'m').lines.find(x=>x.key==='bonus_b1').amount,2500);assert.deepEqual(C.addBonus(d,'m','b1',{amount:25,reason:'جودة المتابعة',date:'2026-11-14'},at),d);
 d.sales.a.status='مرتجع';assert.equal(C.report(d,'m').adjustment,-11000);assert.throws(()=>C.pay(d,'m','p3',C.report(d,'m').due,at));assert.throws(()=>C.validate({...rule,kind:'percent',rate:101}));assert.throws(()=>C.validate({...rule,cycleDay:0}));assert.throws(()=>C.validate({...rule,from:'2026-02-30'}));
 assert.equal(fs.readFileSync('android-app/app/src/main/assets/commission-core.js','utf8'),fs.readFileSync('android-app/moderator/src/main/assets/commission-core.js','utf8'));assert.equal(C.report(C.addBonus({moderators:{m:{}}},'m','future',{amount:50,reason:'مستقبل',date:'2099-01-01'},at),'m').due,0);console.log('PASS commissions: versions, cycle boundaries, cents, eligibility, bonuses, immutable history, idempotent payout and expense, reversal guard');
+let unified=C.saveGlobalRule(base,'global1',{...rule,target:0,bonus:0},at);
+assert.equal(C.report(unified,'m').due,1000);
+unified.moderators.n={name:'جديد'};unified.sales.new={...base.sales.a,sellerId:'n'};
+assert.equal(C.report(unified,'n').due,1000);
+assert.equal(unified.staff_compensation,undefined);
+unified=C.pay(unified,'n','newpay',1000,at);assert.equal(unified.expenses.commission_newpay.amount,10);
+assert.throws(()=>C.saveGlobalRule(unified,'backdated',rule,at));
+let legacy=C.saveRule(base,'m','personal',{...rule,rate:3,target:0,bonus:0},at);
+legacy=C.saveGlobalRule(legacy,'everyone',{...rule,rate:20,target:0,bonus:0,from:'2026-11-07'},at);
+assert.equal(C.report(legacy,'m').lines.find(l=>l.orderId==='a').amount,300);
+assert.equal(C.report(legacy,'m').lines.find(l=>l.orderId==='b').amount,2000);
+assert.equal(C.report(legacy,'m').pending,2000);
+const empty=C.saveGlobalRule({sales:{}},'universal',rule,at);assert.ok(empty.moderator_commission_rules.universal);
+console.log('PASS unified policy applies without employee selection, covers new employees, keeps separate earnings and historical rules, and blocks paid-history rewrite');
