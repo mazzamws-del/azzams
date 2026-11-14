@@ -7,6 +7,7 @@ const stub=`window.__fixture=${JSON.stringify(fixture)};window.__calls=[];window
 if((process.env.TEST_APP||'app')==='app'){
  assert.equal(await page.locator('.ws-mainnav button').count(),6);assert.equal(await page.locator('#ws-home').isVisible(),true);assert.equal(await page.locator('#rd-home-finance').isVisible(),false);assert.equal(await page.locator('#ws-home .ws-kpi').count(),5);
  await page.evaluate(async()=>{const today=AzzamsAccounting.today();await db.ref('monthly_closures').set({test:{id:'test',from:today.slice(0,7)+'-01',to:AzzamsFinance.addDay(today,-1),closedAt:Date.now()-86400000}});});await page.waitForTimeout(150);assert.ok((await page.locator('#ws-home .ws-head').innerText()).includes('من آخر تقفيل'));assert.ok((await page.locator('#ws-home').innerText()).includes('إجمالي الأوردرات النشطة'));
+ assert.equal(await page.locator('#ws-home .ws-kpi').first().locator('span').innerText(),'أوردرات الفترة');await page.locator('#ws-home .ws-active-status summary').first().click();assert.ok((await page.locator('#ws-home .ws-active-status[open]').innerText()).includes('عميل اختبار'));
  const before=await page.evaluate(()=>JSON.stringify(__fixture.sales));
  await page.screenshot({path:'/tmp/azzams-v3-admin-home.png',fullPage:true});
  await page.locator('.ws-mainnav [data-route="accounts"]').click();await page.waitForTimeout(150);
