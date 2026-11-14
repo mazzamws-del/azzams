@@ -175,6 +175,7 @@ input,textarea,select{width:100%;border:1px solid #dfe3ea;border-radius:12px;bac
 
 <div id="toast" class="toast"></div>
 
+<script src="ops-core.js"></script>
 <script>
 const firebaseConfig={apiKey:"AIzaSyCe-7GRYgE8pXfex04uFo-xyIZIMKCdGdo",authDomain:"azzams-system.firebaseapp.com",projectId:"azzams-system",storageBucket:"azzams-system.firebasestorage.app",messagingSenderId:"528435966223",appId:"1:528435966223:web:7e732aea811ab152b58e7a",databaseURL:"https://azzams-system-default-rtdb.firebaseio.com"};
 let db=null,currentCourier=null,orders={},filter='today',salesRef=null;
@@ -186,14 +187,14 @@ function phone(v){v=latinDigits(v).replace(/[^0-9+]/g,'');if(v.startsWith('+20')
 function wa(v){let x=phone(v).replace(/\D/g,'');if(x.startsWith('0'))x='2'+x;return x}
 function localDate(ts){const d=ts?new Date(ts):new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return localDate(d)}
-function expectedCOD(s){const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,Math.round((total-pre)*100)/100)}
+function expectedCOD(s){if(globalThis.AzzamsOps&&AzzamsOps.exchange(s))return AzzamsOps.due(s);const ship=s.freeShipping?0:num(s.shipping),total=num(s.revenue)+ship-num(s.discount),pre=num(s.prepaidAmount!=null?s.prepaidAmount:s.deposit);return Math.max(0,Math.round((total-pre)*100)/100)}
 function customerShipping(s){return s.freeShipping?0:num(s.shipping)}
 function courierFee(s){return Math.max(0,num(s.actualShippingCost!=null?s.actualShippingCost:s.shipping))}
 function money(v){return num(v).toLocaleString('ar-EG',{maximumFractionDigits:2})+' ج'}
 function resultText(r){return ({delivered:'✅ تم التسليم',cancelled:'❌ ملغي',returned_paid_shipping:'↩️ مرتجع — دفع الشحن',returned_unpaid_shipping:'↩️ مرتجع — مدفعش الشحن'})[r]||''}
 function financeFor(s,type){
   let collected=0,fee=0;
-  if(type==='delivered'){collected=expectedCOD(s);fee=courierFee(s)}
+  if(type==='delivered'){collected=AzzamsOps.exchange(s)?AzzamsOps.netDue(s):expectedCOD(s);fee=courierFee(s)}
   if(type==='returned_paid_shipping'){collected=customerShipping(s);fee=courierFee(s)}
   if(type==='returned_unpaid_shipping'){collected=0;fee=courierFee(s)}
   if(type==='cancelled'){collected=0;fee=0}
@@ -267,7 +268,7 @@ function renderOrders(){
   arr=arr.filter(([,s])=>{
     if(filter==='today'&&(s.courierResult||(s.courierPostponedUntil&&s.courierPostponedUntil>today)))return false;
     if(filter==='postponed'&&(s.courierResult||!s.courierPostponedUntil||s.courierPostponedUntil<=today))return false;
-    if(filter==='done'&&!s.courierResult)return false;
+    if(filter==='done'&&(!s.courierResult||s.courierSettledAt))return false;if(filter==='archive'&&!s.courierSettledAt)return false;if(filter!=='archive'&&s.courierSettledAt)return false;if(filter==='exchange'&&(!AzzamsOps.exchange(s)||s.courierResult))return false;
     if(q&&!((s.customer||'')+' '+(s.phone||'')+' '+(s.address||'')+' '+(s.gov||'')+' '+(s.courierNote||'')+' '+(s.courierPostponeNote||'')).toLowerCase().includes(q))return false;
     return true;
   });
@@ -285,15 +286,15 @@ function renderOrders(){
     const note=s.courierNote?`<div class="note-box">📝 ${esc(s.courierNote)}</div>`:'';
     const gift=s.giftMessage?`<div class="gift-box">💌 <b>رسالة الهدية:</b><br>${esc(s.giftMessage)}</div>`:'';
     const post=s.courierPostponedUntil?`<div class="postpone-box">⏰ مؤجل إلى ${esc(s.courierPostponedUntil)}${s.courierPostponeNote?'<br>'+esc(s.courierPostponeNote):''}</div>`:'';
-    return `<article class="order">
+    return `<article class="order" data-order-key="${esc(k)}">
       <div class="order-head"><div><div class="order-no">#${esc(k.slice(-6))}</div><div style="font-size:10px;color:#9ca3af;margin-top:2px">${esc(s.date||'')}</div></div><span class="status ${st.cls}">${st.text}</span></div>
       <div class="order-body">
         <div class="customer">${esc(s.customer||'—')}</div>
         <div class="phone">${esc(phone(s.phone))}${s.phone2?' | '+esc(phone(s.phone2)):''}</div>
         <div class="address">📍 ${esc(addr||'لا يوجد عنوان')}</div>
-        <div class="items">${itemText(s)}</div>
+        <div class="items">${itemText(s)}</div>${AzzamsOps.exchange(s)?'<div class="exchange-tag"><b>استبدال — سلّم البديل واستلم القديم</b><br>يُستلم: '+esc(s.exchangeReturnDescription||'راجع الإدارة قبل التسليم')+'<br>الأصل: '+esc(s.exchangeOriginalId||'—')+'</div>':''}
         ${labels.length?'<div class="labels">'+labels.map(l=>'<span class="label">'+esc(l)+'</span>').join('')+'</div>':''}
-        ${!done?'<div class="money-row '+(cod<=0?'paid':'')+'"><span>'+(cod<=0?'الأوردر':'تحصل من العميل')+'</span><b>'+(cod<=0?'مدفوع بالكامل':money(cod))+'</b></div>':''}
+        ${!done?'<div class="money-row '+(cod<=0?'paid':'')+'"><span>'+(cod<=0?'الأوردر':'تحصل من العميل')+'</span><b>'+(AzzamsOps.exchange(s)?(AzzamsOps.netDue(s)<0?'رد للعميل '+money(-AzzamsOps.netDue(s)):cod<=0?'استبدال — بدون تحصيل':money(cod)):(cod<=0?'مدفوع بالكامل':money(cod)))+'</b></div>':''}
         <div class="quick"><a href="tel:${esc(phone(s.phone))}">📞 اتصال</a><a href="https://wa.me/${esc(wa(s.phone))}">💬 واتساب</a><a href="geo:0,0?q=${encodeURIComponent(addr)}">📍 خريطة</a></div>
         ${post}${gift}${note}${actions}${result}
       </div>
@@ -344,7 +345,7 @@ window.openDeliveryConfirm=function(key){
   const s=orders[key];if(!s)return alert('الأوردر مش موجود أو اتشال من المندوب.');if(s.courierResult)return toast('الأوردر ده متقفل بالفعل: '+resultText(s.courierResult));window._courierSaving=false;
   const f=financeFor(s,'delivered');
   $('delivery-order').value=key;$('delivery-customer').textContent=(s.customer||'—')+'  #'+String(key).slice(-6);$('delivery-cod').textContent=money(f.collected);$('delivery-fee').textContent=money(f.fee);$('delivery-store-due').textContent=money(f.storeDue);
-  const b=$('delivery-confirm-btn');if(b){b.disabled=false;b.textContent='✅ تأكيد تم التسليم'};const c=$('delivery-cancel-btn');if(c)c.disabled=false;openModal('delivery-modal');
+  const b=$('delivery-confirm-btn');if(b){b.disabled=false;b.textContent='✅ تأكيد تم التسليم'};const c=$('delivery-cancel-btn');if(c)c.disabled=false;if(!document.getElementById('exchange-pickup-label')){const label=document.createElement('label');label.id='exchange-pickup-label';label.className='exchange-tag';label.innerHTML='<input type="checkbox" id="exchange-pickup-confirm"> استلمت القطعة القديمة وسلّمت البديل ونفذت فرق المبلغ الموضح';$('delivery-confirm-btn').before(label);}document.getElementById('exchange-pickup-label').hidden=!AzzamsOps.exchange(s);document.getElementById('exchange-pickup-confirm').checked=false;openModal('delivery-modal');
 }
 window.saveDelivery=async function(){
   const key=$('delivery-order').value,b=$('delivery-confirm-btn'),cancel=$('delivery-cancel-btn');
@@ -454,11 +455,11 @@ const F=AzzamsFix;
 async function tx(key,expected,change){await db.ref('sales/'+key).once('value');let reason='';const r=await db.ref('sales/'+key).transaction(s=>{if(!s)return;if(!currentCourier||s.courierId!==currentCourier.id){reason='الأوردر لم يعد مسندًا لك';return;}if(F.canonical(s)!==F.canonical(expected)){reason='الأوردر اتحدث؛ راجعه وحاول مرة أخرى';return;}if(F.closed(s)||s.courierSettledAt){reason='الأوردر منتهي بالفعل';return;}return change(F.clone(s));},undefined,false);if(!r.committed)throw Error(reason||'لم يتم الحفظ؛ حدّث الأوردر');return r.snapshot.val();}
 async function dispatchOutbox(){if(window.AZZAMS_SECURE?.enabled||!currentCourier)return;for(const[key,s]of Object.entries(orders)){for(const[id,event]of Object.entries(s.courierEventOutbox||{})){if(event.sent)continue;try{await db.ref('courier_events/'+id).set(event.value);await db.ref('sales/'+key+'/courierEventOutbox/'+id+'/sent').set(true);}catch(_){return;}}}}
 function event(s,key,type,extra,ts){const id=db.ref('courier_events').push().key;const value={id,orderId:key,courierId:currentCourier.id,courierName:currentCourier.name,type,timestamp:ts,date:localDate(ts),...extra};s.courierEventOutbox=s.courierEventOutbox||{};s.courierEventOutbox[id]={sent:false,value};return s;}
-saveFinal=async function(key,type,reason,note){
+saveFinal=async function(key,type,reason,note){if(type==='delivered'&&AzzamsOps.exchange(orders[key])&&!document.getElementById('exchange-pickup-confirm')?.checked){alert('أكد استلام القطعة القديمة قبل اعتماد الاستبدال');return false;}
  if(window._courierSaving)return false;const original=orders[key];if(!original||!currentCourier)return false;
  if(!['delivered','cancelled','returned_paid_shipping','returned_unpaid_shipping'].includes(type))return false;
  window._courierSaving=true;const expected=F.clone(original),ts=Date.now();
- try{const saved=await tx(key,expected,s=>{const f=financeFor(s,type);const status=type==='delivered'?'تم التوصيل':type==='cancelled'?'ملغي':'مرتجع';F.history(s,s.status,status,ts);Object.assign(s,{courierResult:type,courierResultAt:ts,status,customerCollectedAmount:f.collected,courierCollectedAmount:f.collected,courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue,courierCompletedBy:currentCourier.id,courierCompletedByName:currentCourier.name,courierDeliveryState:'completed',updatedAt:ts,revision:F.num(s.revision)+1,returnStockPending:type!=='delivered'});delete s.courierPostponedUntil;delete s.courierPostponeNote;if(note)s.courierNote=note;if(type==='delivered'){s.deliveredAt=ts;}else{s.returnedAt=ts;s.returnReason=reason||'';s.returnType='courier';s.courierShippingPaid=type==='returned_paid_shipping';s.courierShippingCollected=s.courierShippingPaid?f.collected:0;s.returnCost=Math.round((f.fee-f.collected)*100)/100;}return event(s,key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''},ts);});orders[key]=saved;renderOrders();toast('تم تسجيل النتيجة');dispatchOutbox();return true;}catch(e){alert(e.message);return false;}finally{window._courierSaving=false;}
+ try{const saved=await tx(key,expected,s=>{const f=financeFor(s,type);const status=type==='delivered'?'تم التوصيل':type==='cancelled'?'ملغي':'مرتجع';F.history(s,s.status,status,ts);Object.assign(s,{courierResult:type,courierResultAt:ts,status,customerCollectedAmount:f.collected,courierCollectedAmount:f.collected,courierShippingFee:f.fee,storeDueFromCourier:f.storeDue,courierDueFromStore:f.courierDue,courierCompletedBy:currentCourier.id,courierCompletedByName:currentCourier.name,courierDeliveryState:'completed',updatedAt:ts,revision:F.num(s.revision)+1,returnStockPending:type!=='delivered'});delete s.courierPostponedUntil;delete s.courierPostponeNote;if(note)s.courierNote=note;if(type==='delivered'){s.deliveredAt=ts;if(AzzamsOps.exchange(s)){s.exchangeCollectedAt=ts;s.exchangeCollectedBy=currentCourier.id;}}else{s.returnedAt=ts;s.returnReason=reason||'';s.returnType='courier';s.courierShippingPaid=type==='returned_paid_shipping';s.courierShippingCollected=s.courierShippingPaid?f.collected:0;s.returnCost=Math.round((f.fee-f.collected)*100)/100;}return event(s,key,'result',{result:type,collectedAmount:f.collected,storeDue:f.storeDue,courierDue:f.courierDue,reason:reason||'',note:note||''},ts);});orders[key]=saved;renderOrders();toast('تم تسجيل النتيجة');dispatchOutbox();return true;}catch(e){alert(e.message);return false;}finally{window._courierSaving=false;}
 };
 window.savePostpone=async function(){const key=$('postpone-order').value,date=$('postpone-date').value,note=$('postpone-note').value.trim();if(!orders[key]||!date||date<=localDate())return alert('اختار تاريخ بعد النهارده');const expected=F.clone(orders[key]),ts=Date.now();try{orders[key]=await tx(key,expected,s=>{Object.assign(s,{courierDeliveryState:'postponed',courierPostponedUntil:date,courierPostponeNote:note,updatedAt:ts,revision:F.num(s.revision)+1});return event(s,key,'postponed',{until:date,note},ts);});closeModal('postpone-modal');renderOrders();dispatchOutbox();}catch(e){alert(e.message);}};
 window.saveNote=async function(){const key=$('note-order').value,note=$('note-text').value.trim();if(!orders[key])return;const expected=F.clone(orders[key]),ts=Date.now();try{orders[key]=await tx(key,expected,s=>{Object.assign(s,{courierNote:note,courierNoteAt:ts,updatedAt:ts,revision:F.num(s.revision)+1});return event(s,key,'note',{note},ts);});closeModal('note-modal');renderOrders();dispatchOutbox();}catch(e){alert(e.message);}};
@@ -504,5 +505,5 @@ if(isMod){
 })();
 
 </script>
-</body>
+<script src="courier-upgrade.js"></script></body>
 </html>
