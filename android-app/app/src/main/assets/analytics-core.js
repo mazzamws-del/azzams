@@ -31,7 +31,7 @@ function analyze(data,from,to){
  for(const e of r.expenseLines){const m=month(e.date);m.expenses+=e.amount;m.profit-=e.amount;if(e.campaignId){const g=groups.campaigns[e.campaignId]||(groups.campaigns[e.campaignId]=bucket());g.spend+=e.amount;}}
  for(const g of Object.values(groups.campaigns))g.net=g.contribution-g.spend;
  const customerRows=Object.values(customers),repeatCustomers=customerRows.filter(c=>c.orders>1).length;
- return {from,to,bounds:bounds(data),financial:r,cohort,months,groups,products,customers:customerRows,repeatCustomers,quality,orders:orderRows.sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id)),deliveryRate:cohort.orders?cohort.delivered/cohort.orders:null,averageDelivered:r.delivered?r.revenue/r.delivered:null,profitMargin:r.revenue?r.profit/r.revenue:null};
+ return {from,to,bounds:bounds(data),financial:r,cohort,months,groups,products,customers:customerRows,repeatCustomers,quality,orders:orderRows.sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id)),deliveryRate:cohort.delivered+cohort.returned?cohort.delivered/(cohort.delivered+cohort.returned):null,averageDelivered:r.delivered?r.revenue/r.delivered:null,profitMargin:r.revenue?r.profit/r.revenue:null};
 }
 return {bounds,analyze,validDay,phone};
 });

@@ -7,11 +7,11 @@ root=Path(__file__).resolve().parents[1]
 assets=root/'android-app/app/src/main/assets'
 s=(assets/'index.html').read_text()
 fonts={name:'data:font/ttf;base64,'+base64.b64encode((assets/'fonts'/name).read_bytes()).decode() for name in ('cairo-400.ttf','cairo-700.ttf')}
-for name in ('mobile-ui.css','desktop-ui.css','redesign.css','interiors.css','notifications.css'):
+for name in ('mobile-ui.css','desktop-ui.css','redesign.css','interiors.css','notifications.css','workspace.css'):
     css=(assets/name).read_text()
     for file,data in fonts.items():css=css.replace('fonts/'+file,data)
     s=s.replace('<link rel="stylesheet" href="'+name+'">','<style>'+css+'</style>')
-for name in ('mobile-ui.js','qr-code.js','thermal-label.js','gift-print.js','desktop-ui.js','mobile-status.js','finance-core.js','finance-ui.js','redesign.js','interiors.js','notifications.js','regions-picker.js','archive-view.js','preparation-core.js','preparation-batches.js','preparation-ui.js','backups.js','analytics-core.js','analytics-ui.js','ops-core.js','shifts-ui.js','exchange-admin.js','exchange-receive.js','employees-admin.js'):
+for name in ('mobile-ui.js','qr-code.js','thermal-label.js','gift-print.js','desktop-ui.js','mobile-status.js','finance-core.js','finance-ui.js','redesign.js','interiors.js','notifications.js','regions-picker.js','archive-view.js','preparation-core.js','preparation-batches.js','preparation-ui.js','backups.js','analytics-core.js','analytics-ui.js','ops-core.js','shifts-ui.js','exchange-admin.js','exchange-receive.js','employees-admin.js','workspace-core.js','workspace.js'):
     js=(assets/name).read_text()
     if name=='gift-print.js':js=js.replace("new URL('fonts/cairo-700.ttf',document.baseURI).href",repr(fonts['cairo-700.ttf']))
     if name=='exchange-admin.js':
