@@ -15,7 +15,7 @@ if((process.env.TEST_APP||'app')==='app'){
  await page.locator('.ws-mainnav [data-route="team"]').click();await page.waitForTimeout(150);assert.ok((await page.locator('#section-team').innerText()).includes('كل موظف'));
  await page.screenshot({path:'/tmp/azzams-v3-admin-team.png',fullPage:true});
  for(const route of ['sales','packing','inventory','analytics','expenses','campaigns','archive','couriers','moderators','shifts','settings']){await page.evaluate(id=>showSection(id),route);await page.waitForTimeout(50);assert.equal(await page.locator('#section-'+route).isVisible(),true,route);}
- await page.setViewportSize({width:390,height:844});await page.evaluate(()=>showSection('accounts'));await page.waitForTimeout(150);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/tmp/azzams-v3-admin-mobile.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.evaluate(()=>showSection('dashboard'));await page.locator('#azzams-mobile-nav [data-section="analytics"]').click();await page.waitForTimeout(150);assert.equal(await page.locator('#section-accounts').isVisible(),true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/tmp/azzams-v3-admin-mobile.png',fullPage:true});
  assert.equal(await page.evaluate(()=>JSON.stringify(__fixture.sales)),before);
 }else{
  await page.setViewportSize({width:390,height:844});
