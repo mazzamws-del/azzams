@@ -9,3 +9,6 @@ body.ws-design{background:var(--ws-paper)!important;color:var(--ws-ink)}
 @media(max-width:1000px){.ws-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ws-grid{grid-template-columns:1fr}.ws-head h1{font-size:25px}.ws-head{align-items:flex-start;flex-wrap:wrap}.ws-prep-intro{flex-direction:column;align-items:flex-start}}
 @media(max-width:500px){.ws-panel,.ws-kpi{padding:16px;border-radius:15px}.ws-kpis{gap:10px}.ws-kpi b{font-size:23px}.ws-section-links{grid-template-columns:1fr}.ws-subnav{flex-wrap:nowrap;overflow:auto;max-width:100%}.ws-subnav button{white-space:nowrap;flex-shrink:0}.ws-head{margin-bottom:16px}.ws-head .ws-actions{width:100%}.ws-page{padding-bottom:25px}}
 @media print{.ws-mainnav,.ws-subnav{display:none!important}.ws-kpi,.ws-panel{break-inside:avoid}}
+
+body.ws-design.rd-design #section-dashboard #ws-home{display:block!important}body.ws-design.rd-design #section-dashboard #rd-home-finance,body.ws-design.rd-design #section-dashboard #rd-tools-button{display:none!important}
+body.ws-design.rd-design,body.ws-design.rd-design #main-content{background:var(--ws-paper)!important}.ws-page .ws-primary:hover{background:#682139;color:white}.ws-page .ws-head input{width:auto;max-width:230px}.ws-mainnav{overflow:auto;flex:1;align-content:start}

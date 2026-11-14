@@ -5,13 +5,13 @@ const stub=`window.__fixture=${JSON.stringify(fixture)};window.__calls=[];window
 
 (async()=>{const server=http.createServer((req,res)=>{let name=req.url.split('?')[0];if(name==='/')name='/index.html';if(name.includes('/vendor/firebase-')){res.setHeader('Content-Type','application/javascript');return res.end(name.includes('firebase-app-')?stub:'')}const p=path.join(root,name);if(!p.startsWith(root)||!fs.existsSync(p)){res.statusCode=404;return res.end()}res.setHeader('Content-Type',p.endsWith('.js')?'application/javascript':p.endsWith('.css')?'text/css':p.endsWith('.ttf')?'font/ttf':'text/html');res.end(fs.readFileSync(p));});await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;try{browser=await chromium.launch({executablePath:process.env.AZZAMS_CHROMIUM||undefined,headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.dismiss());await page.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:')?r.continue():r.fulfill({body:''}));await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForTimeout(1000);
 if((process.env.TEST_APP||'app')==='app'){
- assert.equal(await page.locator('.ws-mainnav button').count(),6);
+ assert.equal(await page.locator('.ws-mainnav button').count(),6);assert.equal(await page.locator('#ws-home').isVisible(),true);assert.equal(await page.locator('#rd-home-finance').isVisible(),false);assert.equal(await page.locator('#ws-home .ws-kpi').count(),4);
  const before=await page.evaluate(()=>JSON.stringify(__fixture.sales));
  await page.screenshot({path:'/tmp/azzams-v3-admin-home.png',fullPage:true});
  await page.locator('.ws-mainnav [data-route="accounts"]').click();await page.waitForTimeout(150);
  assert.equal(await page.locator('#section-accounts').isVisible(),true);assert.equal(await page.locator('#section-accounts .ws-kpi').count(),4);
  await page.locator('#ws-detail-tabs').getByRole('button',{name:'المسجلة في الشهر',exact:true}).click();assert.ok((await page.locator('#ws-account-detail').innerText()).includes('عميل اختبار'));
- await page.screenshot({path:'/tmp/azzams-v3-admin-accounts.png',fullPage:true});
+ await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'/tmp/azzams-v3-admin-accounts.png',fullPage:true});
  await page.locator('.ws-mainnav [data-route="team"]').click();await page.waitForTimeout(150);assert.ok((await page.locator('#section-team').innerText()).includes('كل موظف'));
  await page.screenshot({path:'/tmp/azzams-v3-admin-team.png',fullPage:true});
  for(const route of ['sales','packing','inventory','analytics','expenses','campaigns','archive','couriers','moderators','shifts','settings']){await page.evaluate(id=>showSection(id),route);await page.waitForTimeout(50);assert.equal(await page.locator('#section-'+route).isVisible(),true,route);}
