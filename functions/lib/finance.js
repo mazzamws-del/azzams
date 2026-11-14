@@ -35,6 +35,15 @@ function periods(start,today,closingDay=0){if(!/^\d{4}-\d{2}-\d{2}$/.test(start|
 function startDate(data){return data.settings?.accountingStartDate||[...Object.values(data.sales||{}),...Object.values(data.expenses||{})].map(x=>day(x.date)).filter(Boolean).sort()[0]||'';}
 function archiveClosed(data,ts){const closed=Object.values(data.monthly_closures||{}).sort((a,b)=>a.to.localeCompare(b.to));for(const [id,s] of Object.entries(data.sales||{})){if(s.monthlyArchiveId||!terminal(s)||!archivable(s))continue;const date=eventDay(s).date,p=closed.find(p=>(p.orderLines||[]).some(line=>line.id===id)||!Array.isArray(p.orderLines)&&date>=p.from&&date<=p.to&&Number(s.updatedAt||s.timestamp||0)<=Number(p.closedAt||0));if(p){s.monthlyArchiveId=p.id||p.from+'_'+p.to;s.monthlyArchivedAt=ts;}}for(const [id,e] of Object.entries(data.expenses||{})){if(e.monthlyArchiveId)continue;const date=day(e.date),p=closed.find(p=>(p.expenseLines||[]).some(line=>line.id===id)||!Array.isArray(p.expenseLines)&&date>=p.from&&date<=p.to&&Number(e.updatedAt||0)<=Number(p.closedAt||0));if(p){e.monthlyArchiveId=p.id||p.from+'_'+p.to;e.monthlyArchivedAt=ts;}}return data;}
 function pendingReport(data,from,to){const source={...data,exchange_recoveries:Object.fromEntries(Object.entries(data.exchange_recoveries||{}).filter(([,x])=>!x.accountingClosureId)),sales:Object.fromEntries(Object.entries(data.sales||{}).filter(([,s])=>!s.monthlyArchiveId&&!s.accountingClosureId)),expenses:Object.fromEntries(Object.entries(data.expenses||{}).filter(([,e])=>!e.monthlyArchiveId))};const r=report(source,'0000-01-01',to),registered=report(data,from,to);return {...r,from,to,createdOrders:registered.createdOrders,pending:registered.pending,receivable:registered.receivable,payable:registered.payable};}
+// Current open account: same unbooked movements as closing, ending today.
+function openReport(data,asOf=day(Date.now())){
+ const last=Object.values(data.monthly_closures||{}).sort((a,b)=>a.to.localeCompare(b.to)||Number(a.closedAt||0)-Number(b.closedAt||0)).pop();
+ const from=last?(last.partialDay?last.to:addDay(last.to,1)):(startDate(data)||asOf);
+ const r=pendingReport(data,from,asOf);
+ let estimatedRegistrations=0;
+ const registered=Object.entries(data.sales||{}).filter(([,s])=>{const d=day(s.date||s.timestamp);if(!d||d<from||d>asOf)return false;if(last?.partialDay&&d===from){const t=Number(s.timestamp||s.createdAt||0);if(t)return t>Number(last.closedAt||0);estimatedRegistrations++;return !s.accountingClosureId&&!s.monthlyArchiveId;}return true;});
+ return {...r,createdOrders:registered.length,pending:registered.filter(([,s])=>!terminal(s)).length,registeredIds:registered.map(([id])=>id),lastClosedAt:last?.closedAt||null,partialDay:!!last?.partialDay,estimatedRegistrations};
+}
 function closePeriods(data,asOf,manual=false,ts=Date.now()){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(asOf||''))throw Error('تاريخ تقفيل غير صالح');
  data.monthly_closures=data.monthly_closures||{};archiveClosed(data,ts);const closed=data.monthly_closures,last=Object.values(closed).sort((a,b)=>a.to.localeCompare(b.to)||a.closedAt-b.closedAt).pop(),start=last?(last.partialDay?last.to:addDay(last.to,1)):startDate(data);
@@ -43,5 +52,5 @@ function closePeriods(data,asOf,manual=false,ts=Date.now()){
  for(const p of list){if(closed[p.id])continue;const r=pendingReport(data,p.from,p.to);if(p.partialDay&&!r.orderLines.length&&!r.expenseLines.length&&!r.recoveryLines.length&&last)continue;const stored=JSON.parse(JSON.stringify(r));for(const group of Object.values(stored.groups)){const entries=Object.entries(group);for(const key of Object.keys(group))delete group[key];entries.forEach(([name,g],i)=>{group['g'+i]={...g,name};});}closed[p.id]={...stored,...p,closedAt:ts,mode:manual?'manual':'automatic',balanceAsOf:asOf};for(const line of r.orderLines){const s=data.sales[line.id];s.accountingClosureId=p.id;if(archivable(s)){s.monthlyArchiveId=p.id;s.monthlyArchivedAt=ts;}}for(const line of r.recoveryLines||[]){data.exchange_recoveries[line.id].accountingClosureId=p.id;}for(const line of r.expenseLines){const e=data.expenses[line.id];e.monthlyArchiveId=p.id;e.monthlyArchivedAt=ts;}}
  return data;
 }
-return {cents,day,addDay,eventDay,report,campaign,periods,startDate,closePeriods,archiveClosed,pendingReport};
+return {cents,day,addDay,eventDay,report,campaign,periods,startDate,closePeriods,archiveClosed,pendingReport,openReport};
 });
